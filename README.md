@@ -15,7 +15,10 @@ telephony.
 
 ## Project dashboard
 
-Generated from JSON. Open locally or view on the GitHub-hosted URL.
+**Live: https://ragavellur.github.io/nomadlink/**
+
+Generated from JSON. Also opens locally at
+[`docs/index.html`](docs/index.html).
 
 | Page | Contents |
 |---|---|

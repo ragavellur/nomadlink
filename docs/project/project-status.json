@@ -6,7 +6,9 @@
     "portal": "NomadLink Console",
     "cloud": "NomadLink Cloud",
     "version": "0.1.0",
-    "phase": "FOUNDATION_AND_DE_RISKING"
+    "phase": "FOUNDATION_AND_DE_RISKING",
+    "dashboard_url": "https://ragavellur.github.io/nomadlink/",
+    "repository": "https://github.com/ragavellur/nomadlink"
   },
   "current_sprint": {
     "id": "SPRINT-001",

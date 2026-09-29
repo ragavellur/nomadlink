@@ -1,7 +1,21 @@
 {
   "version": "0.1.0",
   "updated_at": "2026-09-29T00:00:00Z",
-  "scale": {"probability": ["Rare", "Unlikely", "Possible", "Likely", "Almost certain"], "impact": ["Negligible", "Minor", "Major", "Critical"]},
+  "scale": {
+    "probability": [
+      "Rare",
+      "Unlikely",
+      "Possible",
+      "Likely",
+      "Almost certain"
+    ],
+    "impact": [
+      "Negligible",
+      "Minor",
+      "Major",
+      "Critical"
+    ]
+  },
   "risks": [
     {
       "id": "RISK-001",
@@ -14,7 +28,9 @@
       "contingency": "Reduce the target to a measured figure and document the gap. Consider deferring MJPEG or ESP-SR to free CPU if the two conflict.",
       "owner": "lead-architect",
       "status": "OPEN",
-      "related_tasks": ["TASK-104"],
+      "related_tasks": [
+        "TASK-104"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
     },
@@ -29,7 +45,11 @@
       "contingency": "If PPP cannot be made to work, the NAT router requirement is not achievable and REQ-004 must be formally descoped or the modem replaced with one that supports a documented USB-NCM or PPP path.",
       "owner": "lead-architect",
       "status": "OPEN",
-      "related_tasks": ["TASK-103", "TASK-104", "TASK-019"],
+      "related_tasks": [
+        "TASK-103",
+        "TASK-104",
+        "TASK-019"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
     },
@@ -44,7 +64,10 @@
       "contingency": "Descope FR-7 entirely (ESP-SR voice dialling) and REQ-017's full-duplex requirement. Control-signalling-only telephony remains viable via ATD/ATA/ATH.",
       "owner": "lead-architect",
       "status": "OPEN",
-      "related_tasks": ["TASK-604", "TASK-701"],
+      "related_tasks": [
+        "TASK-604",
+        "TASK-701"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
     },
@@ -59,7 +82,9 @@
       "contingency": "Relax the NFR to the measured value, or scope voice recognition down to fixed-phrase dialing only.",
       "owner": "lead-architect",
       "status": "OPEN",
-      "related_tasks": ["TASK-701"],
+      "related_tasks": [
+        "TASK-701"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
     },
@@ -74,7 +99,10 @@
       "contingency": "Publish plaintext only in a lab build behind an explicit INSECURE_TRANSPORT flag, and document it as non-shippable.",
       "owner": "lead-architect",
       "status": "OPEN",
-      "related_tasks": ["TASK-405", "TASK-804"],
+      "related_tasks": [
+        "TASK-405",
+        "TASK-804"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
     },
@@ -89,7 +117,9 @@
       "contingency": "If SD is unreliable, use LittleFS on flash and descope snapshot storage.",
       "owner": "lead-architect",
       "status": "OPEN",
-      "related_tasks": ["TASK-805"],
+      "related_tasks": [
+        "TASK-805"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
     },
@@ -104,7 +134,11 @@
       "contingency": "Reduce concurrent feature load: NAT and video cannot both run at full rate; make the dashboard report the conflict.",
       "owner": "lead-architect",
       "status": "OPEN",
-      "related_tasks": ["TASK-104", "TASK-201", "TASK-701"],
+      "related_tasks": [
+        "TASK-104",
+        "TASK-201",
+        "TASK-701"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
     },
@@ -115,7 +149,7 @@
       "probability": "Unlikely",
       "impact": "Critical",
       "severity": "S1",
-      "mitigation": "Revoke and regenerate the token at https://github.com/settings/tokens. Prefer gh auth keyring or a fine-grained token scoped to this repository only. Never place it in .env committed to the repo.",
+      "mitigation": "Revoke and regenerate the token at https://github.com/settings/tokens. Prefer gh auth keyring or a fine-grained token scoped to this repository only. Never place it in .env committed to the repo. 2026-09-29 update: the token was never written to any file in this repository, confirmed by a full scan of all 61 blobs in the published repo. The repository is now PUBLIC, so the token must not be granted any scope that the world can use. Recommended: revoke and reissue with least privilege. Owner declined to rotate at time of writing; this risk is accepted and remains open.",
       "contingency": "If the token is found abused, revoke immediately and audit repository access logs.",
       "owner": "user",
       "status": "ACCEPTED_BY_USER",
@@ -134,9 +168,28 @@
       "contingency": "Degrade to GNSS-only and mark position as unavailable rather than reporting a stale or misleading fix.",
       "owner": "lead-architect",
       "status": "MITIGATED",
-      "related_tasks": ["TASK-303"],
+      "related_tasks": [
+        "TASK-303"
+      ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
+    },
+    {
+      "id": "RISK-010",
+      "title": "Public repository exposes hardware design and product roadmap",
+      "category": "security",
+      "severity": "S3",
+      "probability": "MEDIUM",
+      "status": "ACCEPTED_BY_USER",
+      "description": "The repository was made public on 2026-09-29 to enable GitHub Pages on the free plan. It now publishes the board pinout, the modem AT command bring-up notes, and the unbuilt product roadmap.",
+      "impact": "A third party could learn the hardware design, the SIM/operator details and the feature plan before launch.",
+      "mitigation": "Real IMEI, phone numbers and broker credentials are redacted and enforced by secrets_scan.py. Board pinouts are public on the vendor's own documentation anyway. If the roadmap must stay confidential before launch, move docs/product and LESSONS_LEARNED.md to a private repo and keep only the dashboards public.",
+      "owner": "project owner",
+      "review_date": "2026-10-29",
+      "related_tasks": [],
+      "related_requirements": [
+        "REQ-022"
+      ]
     }
   ]
 }
