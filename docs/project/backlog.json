@@ -240,7 +240,7 @@
         "TASK-001",
         "TASK-019"
       ],
-      "description": "SoftAP SSID NomadLink-XXXX, WPA2-PSK, internal DHCP 192.168.4.x, captive portal redirect stub.",
+      "description": "Bring up SoftAP with internal DHCP. NomadLink-XXXX SSID derived from the efuse MAC, 192.168.4.1 gateway, 192.168.4.2-254 DHCP pool, and the gateway also handed to clients as the DNS server so that client name resolution traverses the NAT in TASK-109. Verified up and broadcasting on the bench; awaiting a real client lease to close.",
       "acceptance_criteria": [
         "A client associates and receives a 192.168.4.x lease",
         "SSID suffix is derived from MAC",
@@ -259,13 +259,17 @@
       ],
       "verification": {
         "status": "NOT_VERIFIED",
-        "evidence": [],
+        "evidence": [
+          "STAGE 1 logs on NomadLink One: ssid NomadLink-DBB8, ap up yes, ap ip 192.168.4.1, dhcp range 192.168.4.2 .. 192.168.4.254",
+          "SSID verified stable across consecutive reboots after switching from WiFi.macAddress() to esp_read_mac()",
+          "netif dump confirms the AP netif exists, is up, and holds 192.168.4.1"
+        ],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "SoftAP verified up and stable. Not yet closed: needs a real client to associate and take a 192.168.4.x lease, which is the first acceptance criterion."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "ad5c900",
         "branch": "main"
       },
       "timestamps": {
@@ -678,7 +682,7 @@
         "reason": "Framework chosen and the decision rests on measured capability of the shipped core, not on documentation."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "ad5c900",
         "branch": "main"
       },
       "timestamps": {

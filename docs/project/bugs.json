@@ -151,6 +151,27 @@
       "preventative_action": "Keep the post-CONNECT settle delay and the core-lock discipline in any firmware that drives this module. When triaging a silent serial link, test timing and receive-path initialisation before suspecting framing or the peer. Record the MRU observation: lwIP advertised MRU=0, but the module answered an MRU=0 request when sent by hand, so MRU was not the cause and ppp_recv_config() is not required here.",
       "status_note": "RESOLVED and verified on hardware. PPP reaches phase RUNNING and stays up; see TEST-020 and BUG-005.",
       "evidence": "Serial captures on /dev/cu.usbmodem58750034621, firmware/baseline/ppp_client. Before: 'RESULT PPP_NEGOTIATION FAIL (45 bytes out, 0 bytes in)'. After each fix in turn: 'assert failed: tcpip_inpkt ... (Invalid mbox)', then 'assert failed: netif_add ... (Required to lock TCPIP core functionality!)', then 'RESULT PPP_NEGOTIATION PASS (phase RUNNING, 217 bytes out, 235 bytes in)' with 'PPP-IP local=100.76.140.112 gateway=10.64.64.64 up=1 mtu=1500'. Cold-boot repeat: 'PPP-IP local=100.77.131.255 gateway=10.64.64.64', 230 bytes out / 273 bytes in."
+    },
+    {
+      "id": "BUG-007",
+      "title": "Calling tcpip_init() after the WiFi stack has started aborts in esp_vfs_lwip_sockets_register",
+      "severity": "S1",
+      "status": "RESOLVED",
+      "component": "lwIP / network initialisation",
+      "detected_by": "TASK-101 (building the NAT router)",
+      "description": "TASK-109's first build called tcpip_init() before creating the PPPoS session, copying BUG-006's third fix. That fix is correct for the ppp_client baseline, which never starts WiFi, but the product starts SoftAP first. SoftAP already runs esp_netif_init() and tcpip_init() internally, so the second call re-registers the VFS socket range and the device aborts: ESP_ERROR_CHECK failed: esp_err_t 0x102 (ESP_ERR_INVALID_ARG), esp_vfs_lwip_sockets_register, vfs_lwip.c:112. The device rebooted into a loop, so the failure looked like a PPP or NAPT problem rather than an initialisation-order one.",
+      "root_cause": "Exactly one thing per process may initialise lwIP, and which thing that is depends on whether WiFi has started. BUG-006's guidance was stated as an absolute rule and was therefore misapplied.",
+      "fix": "Track whether the network stack is already up (set when the AP starts) and only call tcpip_init() when it is not. The rule is now documented as contextual in the sketch header and in ADR-005.",
+      "verification": "Verified on the bench: with SoftAP up, the guard reports 'tcpip already up' and PPP proceeds to phase RUNNING, yielding a CGNAT address and a successful TCP connect to 1.1.1.1:80.",
+      "related_tasks": [
+        "TASK-101",
+        "TASK-109"
+      ],
+      "related_bugs": [
+        "BUG-006"
+      ],
+      "created_at": "2026-09-29T00:00:00Z",
+      "updated_at": "2026-09-29T00:00:00Z"
     }
   ]
 }

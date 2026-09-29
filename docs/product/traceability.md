@@ -5,7 +5,7 @@
 | Requirement | Title | Status | Tasks | Tests | Evidence / blocker |
 |---|---|---|---|---|---|
 | `REQ-001` | Wi-Fi SoftAP with internal DHCP | **NOT_STARTED** | `TASK-101`, `TASK-102`, `TASK-103` | `TEST-101` | Not yet attempted. |
-| `REQ-002` | Wi-Fi STA scan, credential entry and auto-connect | **NOT_STARTED** | `TASK-104`, `TASK-105` | `TEST-102` | Not yet attempted. |
+| `REQ-002` | Wi-Fi STA scan, credential entry and auto-connect | **NOT_STARTED** | `TASK-102`, `TASK-105` | `TEST-102` | Not yet attempted. |
 | `REQ-003` | Cellular connection management over A7670E | **PARTIALLY_VERIFIED** | `TASK-106`, `TASK-107` | `TEST-103` | VERIFIED. AT+CSQ, AT+CEREG?, AT+COPS? all respond. Registered on Airtel MCC 40490 / MNC 90, +CEREG: 0,1, CSQ 26,99 with patch antenna attached. Data bearer active: +CGPADDR: 1,100.90.93.199. |
 | `REQ-004` | Dual-WAN automatic failover with NAT routing | **PARTIALLY_VERIFIED** | `TASK-020`, `TASK-108`, `TASK-109`, `TASK-110` | `TEST-104`, `TEST-105` | Precondition now proven, feature not yet implemented. TASK-020 (2026-09-29) verified on hardware that PPP negotiates end to end on the Airtel SIM: lwIP reached phase RUNNING with local=100.76.140.112 and gateway=10.64.64.64, held stable, and reproduced on a cold boot at local=100.77.131.255. See TEST-020 and BUG-006. That establishes the IP interface NAT forwarding requires.
 
