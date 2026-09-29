@@ -78,7 +78,10 @@
 #define AP_SSID_PREFIX     "NomadLink-"
 #define AP_GW_IP           "192.168.4.1"
 #define AP_DHCP_START      "192.168.4.2"
-#define AP_DHCP_END        "192.168.4.254"
+/* The core's NetworkInterface::config() sets end_ip = start_ip + 10, so the
+ * real pool is 11 addresses regardless of the /24 netmask. */
+#define AP_DHCP_COUNT      11
+#define AP_DHCP_END        "192.168.4.12"
 #define STAGE              3
 
 HardwareSerial modem(1);
@@ -264,23 +267,6 @@ static void showIp(const char *when) {
       (int)netif_is_up(&ppp_netif), ppp_netif.mtu);
 }
 
-/* Dump every netif. A router has to be able to explain its own routing table,
- * and this is also how the "NAPT is on the wrong netif" class of bug becomes
- * visible instead of being inferred from a client that silently fails. */
-static void dumpNetifs() {
-  LOCK_TCPIP_CORE();
-  say("  netif dump:");
-  for (struct netif *n = netif_list; n != NULL; n = n->next) {
-    char abuf[20], gbuf[20];
-    say("    [%d] %-4s up=%d napt=%d local=%-15s gw=%-15s mtu=%d",
-        (int)n->num, n->name, (int)netif_is_up(n), (int)(n->napt != 0),
-        addrStr(netif_ip4_addr(n), abuf, sizeof(abuf)),
-        addrStr(netif_ip4_gw(n),  gbuf, sizeof(gbuf)), n->mtu);
-  }
-  say("  default netif num = %d", (int)(netif_default ? netif_default->num : -1));
-  UNLOCK_TCPIP_CORE();
-}
-
 /* Prove the PPP interface can actually carry traffic, independently of NAT.
  * If this fails the WAN is broken and no amount of forwarding will help; if it
  * passes, any remaining failure is in the SoftAP/NAPT path. A bare TCP connect
@@ -325,6 +311,11 @@ static bool selftestEgress() {
   return ok;
 }
 
+/* Dump every netif. A router has to be able to explain its own routing table,
+ * and this is also how the "NAPT is on the wrong netif" class of bug becomes
+ * visible instead of being inferred from a client that silently fails. */
+static void dumpNetifs();   /* forward decl; defined after startSoftAP() */
+
 /* ------------------------------------------------------------------ *
  *  STAGE 1 — SoftAP
  * ------------------------------------------------------------------ */
@@ -348,11 +339,29 @@ static void startSoftAP() {
   say("  ssid         %s", ssid);
 
   WiFi.mode(WIFI_AP);
+
   /* 192.168.4.1 is both the AP address and the gateway, and is also what gets
-   * handed to clients as their DNS server. */
-  WiFi.softAPConfig(IPAddress(192, 168, 4, 1),
-                    IPAddress(192, 168, 4, 1),
-                    IPAddress(192, 168, 4, 1));
+   * handed to clients as their DNS server.
+   *
+   * The third argument is the SUBNET MASK, not another copy of the AP address.
+   * Passing 192.168.4.1 there was a silent failure: NetworkInterface::config()
+   * calls calculateSubnetCIDR() and bails out with
+   *   "Bad netmask. It must be from /24 to /28"
+   * BEFORE the DHCP server is ever started. The AP still came up and still
+   * broadcast its SSID, so the only symptom was clients that associated and
+   * then sat at 169.254.x.x forever. See BUG-008.
+   *
+   * dns1 (4th arg) is the DHCP lease start for a server interface. The pool is
+   * only 11 addresses wide: start_ip to start_ip+10. */
+  bool cfg = WiFi.softAPConfig(IPAddress(192, 168, 4, 1),
+                               IPAddress(192, 168, 4, 1),
+                               IPAddress(255, 255, 255, 0),
+                               IPAddress(192, 168, 4, 2));
+  say("  ap config     %s", cfg ? "ok" : "FAILED - DHCP will not start");
+  if (!cfg) {
+    say("  FATAL: softAPConfig rejected the netmask; no leases can be served");
+    return;
+  }
   /* The PSK is a placeholder for this stage. Real credential handling is
    * TASK-402/TASK-804; hardcoding a shipping password here would be the same
    * mistake TASK-004 cleaned up. */
@@ -362,7 +371,10 @@ static void startSoftAP() {
   say("  ap up        %s", ok ? "yes" : "NO");
   say("  ap ip        %s", WiFi.softAPIP().toString().c_str());
   say("  clients      %d", WiFi.softAPgetStationNum());
-  say("  dhcp range   %s .. %s", AP_DHCP_START, AP_DHCP_END);
+  /* 11 addresses, not the 253 a /24 implies: the core sets
+   * end_ip = start_ip + 10 unconditionally. */
+  say("  dhcp leases  %s .. %s (%d addresses)", AP_DHCP_START, AP_DHCP_END,
+      AP_DHCP_COUNT);
   say("  dns handed to clients: %s (the gateway, so client lookups traverse the NAT)",
       AP_GW_IP);
 
@@ -370,6 +382,21 @@ static void startSoftAP() {
    * library has already run esp_netif_init() and tcpip_init() on our behalf, so
    * the tcpip mbox that pppos_input_tcpip() posts to now exists. */
   g_tcpip_ready = true;
+}
+
+static void dumpNetifs() {
+  LOCK_TCPIP_CORE();
+  say("  netif dump:");
+  for (struct netif *n = netif_list; n != NULL; n = n->next) {
+    char abuf[20], gbuf[20], nbuf[20];
+    say("    [%d] %-4s up=%d napt=%d local=%-15s gw=%-15s mtu=%d",
+        (int)n->num, n->name, (int)netif_is_up(n), (int)(n->napt != 0),
+        addrStr(netif_ip4_addr(n), abuf, sizeof(abuf)),
+        addrStr(netif_ip4_gw(n),  gbuf, sizeof(gbuf)), n->mtu);
+    say("         netmask=%s", addrStr(netif_ip4_netmask(n), nbuf, sizeof(nbuf)));
+  }
+  say("  default netif num = %d", (int)(netif_default ? netif_default->num : -1));
+  UNLOCK_TCPIP_CORE();
 }
 
 /* ------------------------------------------------------------------ *
@@ -532,7 +559,15 @@ static void startRouting() {
   say("  NAPT on SoftAP netif: %s (err=%d)", g_napt_on ? "enabled" : "FAILED", (int)err);
   say("  ~16 KB of the 512-entry NAPT table now allocated from heap");
   dumpNetifs();
+
+  /* Both halves of the data path, separately. If the client half fails, the
+   * fault is in forwarding or translation; if the local half fails, the WAN is
+   * broken and forwarding is irrelevant. Reporting only one would make the two
+   * indistinguishable. */
+  say("  local egress (ESP32 itself):");
   selftestEgress();
+  say("  client egress (laptop through the NAT) cannot be self-tested;");
+  say("    confirm on the client that a page loads.");
 }
 
 /* ------------------------------------------------------------------ */
@@ -575,11 +610,22 @@ void loop() {
     }
   }
 
+  /* Report the moment a client associates. "Associated but no lease" and "never
+   * associated" are different failures and the status line alone does not tell
+   * them apart, which is how a dead DHCP server looks like a WiFi problem. */
+  static uint8_t last_clients = 0;
+  uint8_t now_clients = WiFi.softAPgetStationNum();
+  if (now_clients != last_clients) {
+    if (now_clients > last_clients) say("  client associated (%d now)", now_clients);
+    else say("  client left (%d now)", now_clients);
+    last_clients = now_clients;
+  }
+
   static uint32_t last = 0;
   if (millis() - last > 5000) {
     last = millis();
     say("[status] ap_clients=%d ppp=%s phase=%s napt=%s out=%lu in=%lu",
-        WiFi.softAPgetStationNum(),
+        now_clients,
         g_got_ip ? "up" : "down",
         phaseName(g_last_phase),
         g_napt_on ? "on" : "off",

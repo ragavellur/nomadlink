@@ -172,6 +172,26 @@
       ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
+    },
+    {
+      "id": "BUG-008",
+      "title": "softAPConfig() netmask argument made the DHCP server silently never start",
+      "severity": "S1",
+      "status": "RESOLVED",
+      "component": "SoftAP / DHCP (TASK-101)",
+      "detected_by": "TASK-101, first client association attempt from a laptop",
+      "description": "The third argument to WiFi.softAPConfig() is the SUBNET MASK. It was passed a third copy of the AP address (192.168.4.1) instead of 255.255.255.0. NetworkInterface::config() validates it with calculateSubnetCIDR() and returns false when CIDR > 28 || CIDR < 24, BEFORE the DHCP server is ever started. The AP still came up and still broadcast its SSID, so the only symptom was clients that associated and then never received a lease. The firmware log printed 'ap up yes' and 'ap ip 192.168.4.1' and looked healthy.",
+      "root_cause": "The API takes three addresses that read identically at the call site, so the mistake is invisible in review. softAPConfig's return value was discarded, which is the only signal that the configuration was rejected.",
+      "fix": "Pass IPAddress(255,255,255,0) as the netmask and IPAddress(192,168,4,2) as the DHCP lease start. Check the return value and report a fatal error if it fails, so this can never again be a silent failure. The netif dump now prints the netmask of every interface, so the configured value is directly visible on the console.",
+      "verification": "ap config now reports ok, the AP netif shows netmask=255.255.255.0 and napt=1, and the DHCP pool is reported correctly.",
+      "secondary_finding": "The DHCP pool is 11 addresses wide, not the 253 a /24 implies: the core sets end_ip = start_ip + 10 unconditionally. The firmware had been logging a 192.168.4.2-254 range that never existed.",
+      "related_tasks": [
+        "TASK-101",
+        "TASK-109"
+      ],
+      "related_bugs": [],
+      "created_at": "2026-09-29T00:00:00Z",
+      "updated_at": "2026-09-29T00:00:00Z"
     }
   ]
 }
