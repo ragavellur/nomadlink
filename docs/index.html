@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Defects — NomadLink</title><style>
+<title>NomadLink — Project Dashboard</title><style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--bd:#2a2f3a;--fg:#e6e9ef;--dim:#9aa4b2;
 --acc:#4c9aff;--ok:#3fb950;--warn:#d29922;--err:#f85149;--s0:#f85149;--s1:#ff7b72;--s2:#d29922;--s3:#58a6ff;--s4:#8b949e;}
 *{box-sizing:border-box}
@@ -53,10 +53,44 @@ footer{padding:20px 24px;color:var(--dim);font-size:11.5px;border-top:1px solid 
 <body>
 <header>
   <h1>NomadLink</h1>
-  <div class="sub">NomadLink One · NomadLink OS · NomadLink Console · NomadLink Cloud — v0.1.0 — generated 2026-09-29 11:00 UTC</div>
+  <div class="sub">NomadLink One · NomadLink OS · NomadLink Console · NomadLink Cloud — v0.1.0</div>
 </header>
-<nav><a href="index.html" class="">Overview</a><a href="sprint-board.html" class="">Sprint Board</a><a href="requirements.html" class="">Requirements</a><a href="tests.html" class="">Tests</a><a href="bugs.html" class="on">Defects</a><a href="risks.html" class="">Risks</a><a href="releases.html" class="">Releases</a><a href="changelog.html" class="">Activity</a></nav>
-<main><h2>Defects</h2><table><tr><th>ID</th><th>Sev</th><th>Defect</th><th>Status</th><th>Root cause</th></tr><tr><td class='mono'>BUG-001</td><td><span class='tag sv-S2'>S2</span></td><td>SD card fails under ESP-IDF (err=0x107) but works under Arduino<br><span class='muted'>Mount SD_MMC with pins CLK=5, CMD=4, D0=6 → Attempt CMD0/CMD8/CMD55/ACMD41 initialisation → All commands return err=0x107</span></td><td>OPEN</td><td class='muted'>UNKNOWN. Not yet diagnosed. Candidates: clock configuration, pin drive strength, marginal card socket contact, or a difference in the IDF SDMMC driver initialisation sequence.</td></tr><tr><td class='mono'>BUG-002</td><td><span class='tag sv-S1'>S1</span></td><td>tracker MQTT CONNECT never confirmed; CIPSEND prompt and CONNACK unreadable by line parser<br><span class='muted'>Flash tracker.ino → Observe +CIPOPEN: 0,10 (socket opens successfully) → Observe that MQTT-CONNECT sent is never logged → Note that MARK-CONNECTED is printed unconditionally regardless of outcome</span></td><td>OPEN</td><td class='muted'>Two defects. (1) AT+CIPSEND emits a '&gt;' prompt that is not reliably newline-terminated, so the line-based reader blocks until its deadline expires and gives up before the prompt is seen. (2) Broker CONNACK bytes (20 02 00 00) are not newlin</td></tr><tr><td class='mono'>BUG-003</td><td><span class='tag sv-S2'>S2</span></td><td>tracker GNSS wait loop exits after seconds instead of the intended 15 minutes<br><span class='muted'>Flash tracker.ino with no GNSS fix available → Observe TRACKER-DONE-NOFIX after a few seconds → The loop condition reads t &lt; 900000UL &amp;&amp; !haveFix, with t += 1000 per iteration</span></td><td>OPEN</td><td class='muted'>The loop counter is incremented by 1000 per iteration as a stand-in for milliseconds, but each iteration does not actually take one second. The counter is a fiction; it does not represent elapsed time.</td></tr><tr><td class='mono'>BUG-004</td><td><span class='tag sv-S3'>S3</span></td><td>PRD FR-3.1 specifies a non-existent AT command<br><span class='muted'>Issue AT+CGNSINF → Receive +CME ERROR</span></td><td>OPEN</td><td class='muted'>The PRD was written without validation against the actual module command set.</td></tr></table></main>
+<main>
+<div class="note"><strong>Foundation stage.</strong> The hardware capabilities are physically
+verified; the product software has not been started. Open the
+<strong>Overview</strong> for the honest status, including what is
+<em>not</em> yet proven.</div>
+<h2>Project dashboard</h2>
+<div class="cards">
+<div class="card ok"><div class="n">2 / 23</div><div class="l">requirements verified</div></div>
+<div class="card warn"><div class="n">6 / 23</div><div class="l">partially verified</div></div>
+<div class="card"><div class="n">48</div><div class="l">tasks tracked</div></div>
+<div class="card"><div class="n">29</div><div class="l">tests recorded</div></div>
+<div class="card err"><div class="n">4</div><div class="l">open defects</div></div>
+<div class="card err"><div class="n">4</div><div class="l">critical risks</div></div>
+</div>
+<h2>Pages</h2>
+<table>
+<tr><th>Page</th><th>What it shows</th></tr>
+<tr><td><a href="project/index.html">Overview</a></td><td>Honest status, current sprint, requirement traceability</td></tr>
+<tr><td><a href="project/sprint-board.html">Sprint Board</a></td><td>All 48 tasks across the workflow states</td></tr>
+<tr><td><a href="project/requirements.html">Requirements</a></td><td>Every requirement with its verification evidence</td></tr>
+<tr><td><a href="project/tests.html">Tests</a></td><td>Test results — a PASS without evidence is rejected</td></tr>
+<tr><td><a href="project/bugs.html">Defects</a></td><td>Open bugs with root cause</td></tr>
+<tr><td><a href="project/risks.html">Risks</a></td><td>Risk register and mitigations</td></tr>
+<tr><td><a href="project/releases.html">Releases</a></td><td>Release readiness checks</td></tr>
+<tr><td><a href="project/changelog.html">Activity</a></td><td>Change log</td></tr>
+</table>
+<h2>Source documents</h2>
+<table>
+<tr><th>Document</th><th>Purpose</th></tr>
+<tr><td><a href="product/product-spec.md">Product specification</a></td><td>Scope, verified hardware baseline, and where the PRD is wrong</td></tr>
+<tr><td><a href="product/traceability.md">Traceability matrix</a></td><td>Requirement to task to test to evidence</td></tr>
+<tr><td><a href="architecture/architecture.md">Architecture</a></td><td>Layering and the Transport seam</td></tr>
+<tr><td><a href="testing/test-strategy.md">Test strategy</a></td><td>Evidence rules and hardware regression gates</td></tr>
+<tr><td><a href="decisions/README.md">Decisions (ADRs)</a></td><td>Every significant decision and its rationale</td></tr>
+</table>
+</main>
 <footer>Generated by <code>scripts/project-tracker/render.py</code> from <code>docs/project/*.json</code>.
 JSON is the source of truth; this HTML is generated. Do not hand-edit. ADR-003.</footer>
 </body></html>
