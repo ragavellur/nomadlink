@@ -124,11 +124,12 @@
         "TASK-020"
       ],
       "description": "After firmware/baseline/ppp_probe issued ATD*99# and the modem returned CONNECT 115200, the A7670E stopped responding to AT. The recovery probe tried 5 baud rates (115200/9600/57600/38400/230400) against 3 PWRKEY hold lengths (1200/2500/4000 ms) and an 8-second deep power-down via GPIO21, with no reply and zero unsolicited UART bytes in any case. The modem appears to latch off when its supply is interrupted while in PPP data mode.",
-      "root_cause": "Not established. Two candidates: (a) the board's GPIO21 does not actually remove power from the module, so the 'hard power cycle' never produced the clean power-on edge the module needs after being cut mid-session; (b) the module needs a real supply removal to clear a latched data-mode state. Also unresolved: whether the earlier ATH actually exited data mode.",
+      "root_cause": "Likely the module latched off after its supply was interrupted while in PPP data mode, and GPIO21 does not remove power from it. Confirmed: a power_polarity probe walked the full 2x2 matrix of GPIO21 level (HIGH/LOW) x PWRKEY (pulse/none) and all four combinations were silent, which rules out the alternative theory that GPIO21's polarity is simply inverted. Also unresolved: whether the earlier ATH actually exited data mode. The 8-second GPIO21 LOW hold is therefore not a real power cycle, so the module never sees the power-on edge it needs to clear the latch.",
       "impact": "The modem cannot be used until the board is physically power-cycled. Blocks TASK-020, and therefore blocks the NAT routing decision and ADR-005.",
       "workaround": "Unplug USB, wait ~10s, re-plug. Confirmed necessary by the recovery probe's own conclusion.",
       "preventative_action": "Never cut modem power while the module is in data mode. In production firmware, treat a data-mode exit as mandatory and verified, and treat GPIO21 as a power ENABLE only, never as a way to force a reset. Add a 'modem reachable' health check with a real power-cycle recovery path.",
-      "status_note": "Open. Physical power cycle required."
+      "status_note": "Open. Confirmed unrecoverable from software; physical USB removal required.",
+      "evidence": "firmware/baseline/modem_recover: 5 baud rates x 3 PWRKEY hold lengths (1200/2500/4000 ms) + 8s GPIO21 LOW, all silent, 0 unsolicited bytes. firmware/baseline/pwr_polarity: GPIO21 HIGH and LOW, each with and without a PWRKEY pulse, all 4 combinations silent."
     }
   ]
 }
