@@ -431,3 +431,48 @@ And the redaction itself broke two sketches: a note inserted between a `#include
 and a declaration landed outside the comment block, and the leading `*` parsed
 as code. The baseline build gate caught it immediately, which is the only reason
 it was not committed. This is what the gate is for.
+
+## L-10 — A PASS/FAIL line is a claim; the raw bytes are the evidence (2026-09-29)
+
+`firmware/baseline/ppp_probe` printed `RESULT S3_DATA_BEARER FAIL` directly
+above this raw response:
+
+```
+> AT+CGPADDR=1
+< +CGPADDR: 1,100.77.145.7 | OK
+```
+
+The data bearer had **passed**. My verdict parser only matched the quoted form
+`+CGPADDR: 1,"..."`, and this firmware returns the unquoted form. Had the summary
+line been all I captured, I would have recorded "Airtel does not provide data" —
+the exact opposite of the truth — and built on it.
+
+This is the same failure mode as claiming a capability is unsupported: a verdict
+produced by a parser I wrote, which I had never run against this modem's actual
+output. The rule is now: **a result line never gets recorded without the raw
+response it was derived from.** Both are in TEST-020's evidence field so the
+verdict can be re-checked later.
+
+## L-11 — PWRKEY is not a reset, and cutting modem power mid-session is dangerous
+
+`ATD*99#` returned `CONNECT 115200` and the modem entered PPP data mode. The
+A7670E then stopped answering AT, and would not come back:
+
+- 5 baud rates (115200 / 9600 / 57600 / 38400 / 230400)
+- PWRKEY held 1200 ms, 2500 ms, 4000 ms
+- an 8-second deep power-down via GPIO21
+- **zero unsolicited bytes** from the module in every case
+
+It needed the USB cable physically removed. Two rules came out of this:
+
+1. **A PWRKEY pulse is not a reset.** It is a power *toggle* on an off modem and
+   a hang-up/abort on a live one. A pulse sent blindly can make things worse. My
+   first `ppp_probe` had an unconditional pulse and produced a dead modem on the
+   very first re-run.
+2. **Never remove modem power while it is in data mode.** The module latched
+   off and software could not recover it. If GPIO21 is a power *enable* rather
+   than a true supply cut, a "power cycle" through it is not a power cycle at
+   all, and the module never sees the edge it needs.
+
+The open question — which of those it is — is BUG-005, and it needs hardware
+access to settle.

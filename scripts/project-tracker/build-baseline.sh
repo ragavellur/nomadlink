@@ -8,7 +8,10 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 ARC="${ARDUINO_CLI:-/Applications/Arduino IDE.app/Contents/Resources/app/lib/backend/resources/arduino-cli}"
-FQBN="esp32:esp32:esp32s3:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=cdc,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=dio,FlashSize=16M,PartitionScheme=default_8MB,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=default"
+# PartitionScheme MUST be app3M_fat9M_16MB. This board's bootloader and partition
+# table are already on the chip, and a default_8MB build compiles perfectly and
+# then does not boot. A compile gate cannot catch that; see the flash target.
+FQBN="esp32:esp32:esp32s3:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=cdc,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=dio,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=default"
 
 export ARDUINO_DATA_DIR="${ARDUINO_DATA_DIR:-$HOME/Library/Arduino15}"
 export ARDUINO_SKETCHBOOK_DIR="${ARDUINO_SKETCHBOOK_DIR:-$HOME/Documents/Arduino}"
@@ -37,3 +40,14 @@ for dir in "$ROOT"/firmware/baseline/*/; do
   fi
 done
 exit $fail
+
+# --- flash target -----------------------------------------------------------
+# Flashes the app partition ONLY. The bootloader and partition table on this
+# board are known good and are deliberately left alone; writing them is how you
+# brick a board that is currently booting fine.
+#
+#   make flash SKETCH=tracker
+#
+# Requires the CH343 (flashing) port. Console output appears on the CH9102 port.
+FLASH_PORT="${FLASH_PORT:-/dev/cu.wchusbserial58750034621}"
+APP_OFFSET="0x10000"

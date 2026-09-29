@@ -8,8 +8,12 @@
       "severity": "S2",
       "priority": "P1",
       "status": "OPEN",
-      "affected_requirements": ["REQ-023"],
-      "affected_tasks": ["TASK-805"],
+      "affected_requirements": [
+        "REQ-023"
+      ],
+      "affected_tasks": [
+        "TASK-805"
+      ],
       "environment": "nomad-sentinel ESP-IDF project; Arduino core 3.3.11 works",
       "steps_to_reproduce": [
         "Mount SD_MMC with pins CLK=5, CMD=4, D0=6",
@@ -31,8 +35,12 @@
       "severity": "S1",
       "priority": "P0",
       "status": "OPEN",
-      "affected_requirements": ["REQ-012"],
-      "affected_tasks": ["TASK-405"],
+      "affected_requirements": [
+        "REQ-012"
+      ],
+      "affected_tasks": [
+        "TASK-405"
+      ],
       "environment": "tracker/tracker.ino over LTE, firmware A011B04A7670M7_F",
       "steps_to_reproduce": [
         "Flash tracker.ino",
@@ -55,8 +63,12 @@
       "severity": "S2",
       "priority": "P1",
       "status": "OPEN",
-      "affected_requirements": ["REQ-007"],
-      "affected_tasks": ["TASK-301"],
+      "affected_requirements": [
+        "REQ-007"
+      ],
+      "affected_tasks": [
+        "TASK-301"
+      ],
       "environment": "tracker/tracker.ino",
       "steps_to_reproduce": [
         "Flash tracker.ino with no GNSS fix available",
@@ -78,10 +90,17 @@
       "severity": "S3",
       "priority": "P2",
       "status": "OPEN",
-      "affected_requirements": ["REQ-007"],
-      "affected_tasks": ["TASK-301"],
+      "affected_requirements": [
+        "REQ-007"
+      ],
+      "affected_tasks": [
+        "TASK-301"
+      ],
       "environment": "Product Requirement Document v2.0, section 3.3",
-      "steps_to_reproduce": ["Issue AT+CGNSINF", "Receive +CME ERROR"],
+      "steps_to_reproduce": [
+        "Issue AT+CGNSINF",
+        "Receive +CME ERROR"
+      ],
       "expected_result": "Per the PRD, this should return GNSS information",
       "actual_result": "+CME ERROR. The command does not exist on the A7670E. AT+CGPSINFO is valid.",
       "root_cause": "The PRD was written without validation against the actual module command set.",
@@ -90,6 +109,26 @@
       "verification_status": "DOCUMENTED",
       "commit_sha": "",
       "notes": "This error was made by a previous agent too, and the resulting +CME ERROR was misread as a hardware fault. An error from a non-existent command is indistinguishable from a real failure unless the command set is checked."
+    },
+    {
+      "id": "BUG-005",
+      "title": "A7670E latches off after a PPP dial attempt and will not restart from software",
+      "severity": "S1",
+      "status": "OPEN",
+      "component": "modem power management",
+      "found_in": "TASK-020",
+      "related_requirements": [
+        "REQ-004"
+      ],
+      "related_tasks": [
+        "TASK-020"
+      ],
+      "description": "After firmware/baseline/ppp_probe issued ATD*99# and the modem returned CONNECT 115200, the A7670E stopped responding to AT. The recovery probe tried 5 baud rates (115200/9600/57600/38400/230400) against 3 PWRKEY hold lengths (1200/2500/4000 ms) and an 8-second deep power-down via GPIO21, with no reply and zero unsolicited UART bytes in any case. The modem appears to latch off when its supply is interrupted while in PPP data mode.",
+      "root_cause": "Not established. Two candidates: (a) the board's GPIO21 does not actually remove power from the module, so the 'hard power cycle' never produced the clean power-on edge the module needs after being cut mid-session; (b) the module needs a real supply removal to clear a latched data-mode state. Also unresolved: whether the earlier ATH actually exited data mode.",
+      "impact": "The modem cannot be used until the board is physically power-cycled. Blocks TASK-020, and therefore blocks the NAT routing decision and ADR-005.",
+      "workaround": "Unplug USB, wait ~10s, re-plug. Confirmed necessary by the recovery probe's own conclusion.",
+      "preventative_action": "Never cut modem power while the module is in data mode. In production firmware, treat a data-mode exit as mandatory and verified, and treat GPIO21 as a power ENABLE only, never as a way to force a reset. Add a 'modem reachable' health check with a real power-cycle recovery path.",
+      "status_note": "Open. Physical power cycle required."
     }
   ]
 }

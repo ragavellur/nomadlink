@@ -303,10 +303,10 @@
         "Confirm an IP is assigned"
       ],
       "expected_result": "PPP establishes and an IP is assigned",
-      "actual_result": "",
-      "status": "NOT_RUN",
-      "evidence": "",
-      "executed_at": ""
+      "actual_result": "NOT RUN TO COMPLETION. Two of the four steps produced decisive positive evidence; the run was then halted by a hardware failure, not by a software one.\n\nSTEP 1 PASS - data bearer on the Airtel SIM. AT+CGATT=1 -> OK. AT+CGDCONT=1,\"IP\",\"airtelgprs.com\" -> OK. AT+CGACT=1,1 -> OK, AT+CGACT? -> +CGACT: 1,1. AT+CGPADDR=1 -> +CGPADDR: 1,100.77.145.7. The network assigned a real data IP on this SIM, which is what the earlier Jio-SIM attempt failed to achieve. (Network registration is implied: a PDP context cannot be activated without it, even though the CEREG/CGREG lines from S2 scrolled past uncapable.)\n\nSTEP 2 POSITIVE - the modem accepted a PPP dial over UART. ATD*99# returned 'CONNECT 115200', which is the modem entering PPP data mode at 115200. This is the single most important result of the experiment: the A7670E does support PPP over UART on this board, so the risk that esp_modem's USB-only A7670 PPP path makes PPP unreachable is retired. The modem then had to be abandoned.\n\nSTEPS 3-4 NOT REACHED - LCP/IPCP negotiation was never attempted, because no PPP stack was run. No IP was assigned to the ESP32 over PPP. Whether PPP gives a usable interface remains UNPROVEN.\n\nBLOCKER - after the dial attempt the A7670E stopped answering AT entirely and had to be recovered. See BUG-005.",
+      "status": "BLOCKED",
+      "evidence": "Serial console capture, /dev/cu.usbmodem58750034621, firmware/baseline/ppp_probe. Verbatim excerpts:\n  > AT+CGACT=1        < OK\n  > AT+CGACT?         < +CGACT: 1,1 | +CGACT: 8,1 | OK\n  > AT+CGPADDR=1      < +CGPADDR: 1,100.77.145.7 | OK\n  > ATD*99#           < CONNECT 115200\nand from the recovery probe, firmware/baseline/modem_recover:\n  5 baud rates x 3 PWRKEY hold lengths (1200/2500/4000 ms) + 8s deep power-down, all silent;\n  total unsolicited UART bytes: 0",
+      "executed_at": "2026-09-29T00:00:00Z"
     },
     {
       "id": "TEST-021",

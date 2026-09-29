@@ -27,3 +27,9 @@ secrets:
 
 baseline:
 	@bash scripts/project-tracker/build-baseline.sh
+
+flash:
+ifndef SKETCH
+	$(error set SKETCH, e.g. make flash SKETCH=tracker)
+endif
+	@bash scripts/project-tracker/flash-sketch.sh $(SKETCH)

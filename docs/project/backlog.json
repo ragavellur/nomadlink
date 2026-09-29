@@ -2429,11 +2429,11 @@
         "REQ-004"
       ],
       "priority": "P0",
-      "status": "BACKLOG",
+      "status": "BLOCKED",
       "dependencies": [
         "TASK-001"
       ],
-      "description": "Run RISK-002. The earlier PPP failure (+CGREG: 0,3, CGACT 1,0) was on a Jio SIM and looks like a provisioning symptom, not a hardware fault. Retest on the Airtel SIM, which is proven to attach and yield an IP via CGPADDR. Outcome decides whether REQ-004 NAT routing is achievable at all.",
+      "description": "Run RISK-002. Establish whether the ESP32 can obtain a real IP interface over PPP from the A7670E on the Airtel SIM. Partially answered: the data bearer works (IP 100.77.145.7) and the modem accepts a PPP dial over UART (ATD*99# -> CONNECT 115200). LCP/IPCP negotiation and an IP on the ESP32 side are still unproven, and are blocked by BUG-005 until the modem can be power-cycled.",
       "acceptance_criteria": [
         "Implementation satisfies the acceptance criteria of REQ-004",
         "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
@@ -2457,10 +2457,12 @@
       ],
       "verification": {
         "status": "NOT_VERIFIED",
-        "evidence": [],
+        "evidence": [
+          "TEST-020"
+        ],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "Two decisive positives recorded, but the PPP handshake itself was never completed. Not DONE."
       },
       "git": {
         "commit_sha": "",
@@ -2472,7 +2474,8 @@
         "completed_at": "",
         "verified_at": "",
         "last_updated_at": "2026-09-29T00:00:00Z"
-      }
+      },
+      "blocker": "BUG-005: the A7670E latched off after the PPP dial attempt and will not restart from software. 5 baud rates x 3 PWRKEY hold lengths plus an 8s deep power-down all produced silence and zero unsolicited bytes. Requires a physical USB power cycle before the LCP/IPCP half of this experiment can be run."
     },
     {
       "id": "TASK-021",
