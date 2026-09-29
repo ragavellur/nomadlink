@@ -29,7 +29,8 @@
       "owner": "lead-architect",
       "status": "OPEN",
       "related_tasks": [
-        "TASK-104"
+        "TASK-109",
+        "TASK-110"
       ],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
@@ -135,7 +136,7 @@
       "owner": "lead-architect",
       "status": "OPEN",
       "related_tasks": [
-        "TASK-104",
+        "TASK-109",
         "TASK-201",
         "TASK-701"
       ],

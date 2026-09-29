@@ -235,7 +235,7 @@
         "REQ-001"
       ],
       "priority": "P0",
-      "status": "BACKLOG",
+      "status": "IN_PROGRESS",
       "dependencies": [
         "TASK-001",
         "TASK-019"
@@ -270,7 +270,7 @@
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
+        "started_at": "2026-09-29T00:00:00Z",
         "completed_at": "",
         "verified_at": "",
         "last_updated_at": "2026-09-29T00:00:00Z"
@@ -382,7 +382,7 @@
     },
     {
       "id": "TASK-104",
-      "title": "PNAT-based NAT router with dual-WAN failover",
+      "title": "Dual-WAN routing integration: STA primary with LTE PPP fallback",
       "type": "feature",
       "epic_id": "EPIC-001",
       "feature_id": "FEAT-003",
@@ -393,9 +393,12 @@
       "status": "BACKLOG",
       "dependencies": [
         "TASK-101",
-        "TASK-103"
+        "TASK-103",
+        "TASK-105",
+        "TASK-108",
+        "TASK-109"
       ],
-      "description": "Route SoftAP clients out via STA when upstream is healthy, via LTE PPP otherwise. Must meet the 3 s failover and 10-15 Mbps NFRs or formally renegotiate them.",
+      "description": "Integration task: once TASK-101 (SoftAP/DHCP), TASK-109 (NAPT forwarding) and TASK-105/108 (STA plus the WAN state machine) exist, wire them together so SoftAP clients egress over STA when it is healthy and over LTE PPP when it is not. This task owns the end-to-end REQ-004 demonstration only; it deliberately does not re-implement routing, NAT or failover logic that belong to TASK-109 and TASK-108 respectively.",
       "acceptance_criteria": [
         "Clients reach the internet through STA",
         "On STA loss, traffic reroutes to LTE without manual intervention",
@@ -645,15 +648,16 @@
         "REQ-020"
       ],
       "priority": "P0",
-      "status": "READY",
+      "status": "DONE",
       "dependencies": [
         "TASK-001"
       ],
-      "description": "The PRD allows either ESP-IDF 5.x or Arduino-ESP32 3.x. All working hardware baselines today are Arduino sketches; nomad-sentinel is an ESP-IDF project with MODEM_USE_UART 0 and blocked SD. Every remaining verified capability (NAT via esp32_nat_router, esp_camera, ESP-SR, esp-mqtt) is a first-class ESP-IDF citizen. This decision blocks TASK-101, TASK-103 and TASK-104 and must be made first.",
+      "description": "Choose and document the firmware framework baseline. DECIDED: Option B, Arduino-ESP32 3.3.x as the product framework. The premise that made this hard is gone. NAPT is compiled into and exported from the shipped Arduino core (liblwip.a contains ip4_napt.c.obj and exports ip_napt_enable_netif/ip_napt_forward/ip_napt_recv; libesp_netif.a exports esp_netif_napt_enable; sdkconfig sets CONFIG_LWIP_IP_FORWARD, CONFIG_LWIP_IPV4_NAPT, CONFIG_LWIP_IPV4_NAPT_PORTMAP), so NAT is not ESP-IDF-only and REQ-004 no longer discriminates between the frameworks. PPP is already verified on Arduino (TASK-020) after three non-obvious fixes. See ADR-005.",
       "acceptance_criteria": [
         "Decision recorded as an ADR with alternatives and consequences",
         "Rationale addresses NAT/routing feasibility on each framework",
-        "Migration cost for the existing Arduino baselines is stated"
+        "Migration cost for the existing Arduino baselines is stated",
+        "Decision verified by direct inspection of the shipped core rather than by documentation claims"
       ],
       "definition_of_done": [
         "ADR committed",
@@ -662,11 +666,16 @@
       ],
       "test_ids": [],
       "verification": {
-        "status": "NOT_VERIFIED",
-        "evidence": [],
-        "verified_by": "",
-        "verified_at": "",
-        "reason": ""
+        "status": "VERIFIED",
+        "evidence": [
+          "docs/decisions/ADR-005-firmware-framework-selection.md records the decision and the evidence that overturned the earlier ESP-IDF-first recommendation",
+          "ar t liblwip.a lists ip4_napt.c.obj; nm exports ip_napt_enable, ip_napt_enable_no, ip_napt_enable_netif, ip_napt_forward, ip_napt_recv",
+          "nm libesp_netif.a exports esp_netif_napt_enable and esp_netif_napt_disable",
+          "core sdkconfig: CONFIG_LWIP_IP_FORWARD=y, CONFIG_LWIP_IPV4_NAPT=y, CONFIG_LWIP_IPV4_NAPT_PORTMAP=y"
+        ],
+        "verified_by": "lead-architect",
+        "verified_at": "2026-09-29T00:00:00Z",
+        "reason": "Framework chosen and the decision rests on measured capability of the shipped core, not on documentation."
       },
       "git": {
         "commit_sha": "",
@@ -674,9 +683,9 @@
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
-        "completed_at": "",
-        "verified_at": "",
+        "started_at": "2026-09-29T00:00:00Z",
+        "completed_at": "2026-09-29T00:00:00Z",
+        "verified_at": "2026-09-29T00:00:00Z",
         "last_updated_at": "2026-09-29T00:00:00Z"
       },
       "blocker": "One of the two stated preconditions is now met: RISK-002 is retired, PPP produces an IP (TASK-020/TEST-020). The remaining precondition is RISK-003, audio hardware population, which needs a physical board inspection. The decision does not have to wait for it: RISK-003 only affects whether ESP-SR and voice descope, which is an argument about a subset of requirements rather than about the framework as a whole."
@@ -914,11 +923,12 @@
       "dependencies": [
         "TASK-108"
       ],
-      "description": "Implement packet forwarding and NAT translation. Blocked on RISK-002: requires a real IP interface, which most likely means PPP must work first.",
+      "description": "Implement packet forwarding and NAT translation between SoftAP clients and the active WAN. The RISK-002 dependency recorded here is now satisfied: TASK-020 proved PPP reaches phase RUNNING with a real CGNAT address, so the IP interface this task needs exists. NAPT is confirmed present in the shipped Arduino ESP32 core (liblwip.a contains ip4_napt.c.obj and exports ip_napt_enable_netif/ip_napt_forward/ip_napt_recv, and sdkconfig sets CONFIG_LWIP_IP_FORWARD, CONFIG_LWIP_IPV4_NAPT and CONFIG_LWIP_IPV4_NAPT_PORTMAP), which is what removed the original ESP-IDF-only premise in ADR-005. Implementation note carried from the lwIP source: ip_napt_forward() returns early unless the INBOUND netif has napt set, so NAPT must be enabled on the SoftAP netif with the PPP netif as the outbound default route. ip_napt_enable_netif() is a no-op on a netif that is not yet up, so ordering is AP up first, then enable.",
       "acceptance_criteria": [
-        "Implementation satisfies the acceptance criteria of REQ-004",
-        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
-        "Documentation updated and commit SHA recorded"
+        "A client associates with the SoftAP, receives a 192.168.4.x lease, and reaches the public internet through the LTE PPP WAN",
+        "NAPT is enabled on the SoftAP netif and the default route points at the PPP peer",
+        "The ESP32 gateway address is handed to clients as the DNS server so client name resolution traverses the NAT",
+        "Forwarding and translation are demonstrated with at least one client and evidenced from serial logs showing the client IP translated to the CGNAT address on egress"
       ],
       "definition_of_done": [
         "Code implemented and formatted",
@@ -969,11 +979,12 @@
       "dependencies": [
         "TASK-109"
       ],
-      "description": "Measure actual NAT throughput and failover time and compare against the PRD NFRs of 10-15 Mbps and under 3 s. Produce evidence for a renegotiation decision. See RISK-001.",
+      "description": "Measure actual NAT throughput and failover time and compare against the PRD NFRs of 10-15 Mbps and under 3 s. Produce evidence for a renegotiation decision. See RISK-001. Known ceiling to test: ip_napt_init() heap-allocates a fixed IP_NAPT_MAX=512 entry table (~16 KB via mem_calloc, not a memp pool) and ip_napt_init is not an exported symbol, so the table size cannot be raised without rebuilding lwIP. That caps concurrent translated connections and is a plausible cause of falling short of the throughput NFR.",
       "acceptance_criteria": [
-        "Implementation satisfies the acceptance criteria of REQ-004",
-        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
-        "Documentation updated and commit SHA recorded"
+        "Measured NAT throughput in Mbps is recorded with the client count and LTE signal conditions stated alongside the figure",
+        "Measured failover time in seconds is recorded from loss of STA to successful client traffic via LTE",
+        "Both measurements are compared explicitly against the 10-15 Mbps and 3 s NFRs, and a short-fall is stated as a short-fall rather than a pass",
+        "If either NFR is missed, the NAPT entry-count ceiling and CPU/RAM headroom are reported as candidate causes and a renegotiation recommendation is made"
       ],
       "definition_of_done": [
         "Code implemented and formatted",

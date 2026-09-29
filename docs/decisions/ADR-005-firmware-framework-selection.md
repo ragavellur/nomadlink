@@ -1,8 +1,8 @@
 # ADR-005 — Firmware framework selection
 
-- **Status:** PROPOSED — evidence has changed, decision is now ready to take (see *Update 2026-09-29*)
+- **Status:** ACCEPTED — Option B, Arduino-ESP32 3.x as the product framework (see *Update 2026-09-29 (later)*)
 - **Date:** 2026-09-29
-- **Related:** TASK-019, RISK-002, RISK-006, RISK-007
+- **Related:** TASK-019, RISK-002, RISK-003, RISK-006, RISK-007
 
 ## Context
 
@@ -64,9 +64,13 @@ ported, and two of them (SD, PPP) already *fail* under IDF for unknown reasons
 (RISK-002, RISK-006), so porting is not risk-free.
 
 **Option B — Arduino-ESP32 3.x as primary.**
-Pros: all working baselines already run here. Lowest immediate risk. Cons: NAT
-and ESP-SR are significantly harder; the highest-risk requirement in the product
-lands on the weakest platform support.
+Pros: all working baselines already run here, and PPP is already verified here
+(TASK-020). Lowest immediate risk. Cons: ESP-SR and `esp_codec_dev` for I2S are
+genuinely harder, since those are IDF components with no Arduino equivalent.
+
+> **Corrected 2026-09-29.** This option originally listed NAT as a weakness. That
+> was wrong and has been disproven by direct inspection of the shipped core; see
+> the NAPT finding in the final section below. NAT is not a weakness of Option B.
 
 **Option C — ESP-IDF primary, with the verified AT-command baselines retained as
 a separate `firmware/baseline/` Arduino test harness for hardware regression.**
@@ -165,3 +169,93 @@ information; it is that nobody has written the decision down.
 **Proposed:** record Option C as Accepted, with the Arduino baselines retained
 under `firmware/baseline/` as the regression harness, and revisit only if
 RISK-003 descopes the audio work. TASK-019 closes on that basis.
+
+---
+
+## Update 2026-09-29 (later) — NAPT is in the Arduino core; decision is Option B
+
+The proposal above is **not taken**. One more check overturned the premise it
+rested on.
+
+The load-bearing claim in the previous update was that "NAT is a solved problem on
+ESP-IDF via `esp32_nat_router` but genuinely awkward on Arduino", and that
+REQ-004 was the one remaining argument pulling the decision toward ESP-IDF. I
+tested that claim against the actual shipped Arduino core rather than the
+documentation, and it does not hold.
+
+**NAPT is compiled in and exported.** From
+`~/Library/Arduino15/packages/esp32/tools/esp32s3-libs/3.3.11/lib/liblwip.a`:
+
+- `ar t` lists `ip4_napt.c.obj` — the module is in the archive, not merely
+  present in a header.
+- `nm` exports `ip_napt_enable`, `ip_napt_enable_no`, `ip_napt_enable_netif`,
+  `ip_napt_forward` and `ip_napt_recv`.
+- `libesp_netif.a` exports `esp_netif_napt_enable` and `esp_netif_napt_disable`,
+  and `esp_netif_napt_enable(esp_netif_t *)` is declared in the shipped
+  `esp_netif.h`.
+
+And from the core's `sdkconfig`: `CONFIG_LWIP_IP_FORWARD=y`,
+`CONFIG_LWIP_IPV4_NAPT=y`, `CONFIG_LWIP_IPV4_NAPT_PORTMAP=y`. The corresponding
+`lwipopts.h` shows `IP_FORWARD 1`, `IP_NAPT 1`, `IP_NAPT_PORTMAP 1`.
+
+So the last argument for ESP-IDF is gone. **REQ-004 is no longer a
+framework-selection discriminator at all.** Everything this ADR listed as an
+ESP-IDF advantage now reduces to audio and speech (REQ-017, REQ-018), which
+depend on the still-unanswered RISK-003, plus TLS convenience that Arduino
+covers with mbedtls.
+
+### Two implementation facts worth keeping
+
+Both were read out of the lwIP source, not assumed, and both will silently
+mislead an implementer:
+
+1. **NAPT keys off the inbound netif.** `ip_napt_forward()` opens with
+   `if (!inp->napt) return ERR_OK;` — translation only happens if the netif the
+   packet *arrived on* is NAPT-enabled. For SoftAP-client-to-PPP traffic that
+   means enabling NAPT on the **SoftAP** netif and pointing the default route at
+   the PPP netif. Enabling it on the outbound netif compiles, boots, and drops
+   all client traffic with no error.
+2. **`ip_napt_enable_netif()` is a silent no-op on a down netif** — it returns 0
+   without enabling when `!netif_is_up(netif)`. Ordering is: AP up, then enable.
+
+A ceiling to carry into TASK-110: `ip_napt_init()` heap-allocates a fixed
+`IP_NAPT_MAX = 512` entry table (~16 KB, `mem_calloc`, not a memp pool), and
+`ip_napt_init` is not an exported symbol, so the table cannot be enlarged without
+rebuilding lwIP. That caps concurrent translated connections and is a candidate
+cause for missing the 10–15 Mbps NFR (RISK-001).
+
+## Decision
+
+**Option B — Arduino-ESP32 3.3.x as the product framework.** The Arduino
+baselines stay exactly where they are and stop being "a separate test harness":
+they become the product's own foundations. ESP-IDF is not adopted now.
+
+Rationale:
+
+- The decisive argument for ESP-IDF is disproven. NAPT is present and exported in
+  the shipped core.
+- PPP is *already verified on Arduino* (TASK-020) and needed three non-obvious
+  fixes to get there. Porting that to ESP-IDF means re-proving it and re-earning
+  those fixes.
+- Every one of the eleven hardware regression sketches is Arduino and all
+  compile. One build system, one flash path, one serial console.
+- REQ-004 is the product's headline requirement and it is now unblocked on the
+  platform that already works.
+
+Consequences:
+
+- TASK-019 closes as `VERIFIED`. TASK-101, TASK-103, TASK-109, TASK-108 and
+  TASK-110 are unblocked.
+- The first NAT milestone is **LTE-only NAT** (TASK-101 + TASK-109), not dual-WAN
+  failover. Proving NAPT translation over PPP is the hard part; STA and failover
+  are layered on afterwards. Dual-WAN integration stays in TASK-104.
+- RISK-003 (audio hardware) no longer blocks any network work. It still gates
+  REQ-017/REQ-018 only. If the board turns out to have no I2S hardware, ESP-SR
+  work is descoped, and the "ESP-SR is an IDF-only feature" argument disappears —
+  which under this decision would simply reinforce Option B, not reopen it.
+- `nomad-sentinel` stays a separate IDF project. Nothing is ported now. If audio
+  work later proves to need ESP-SR, that is a fresh, evidence-based decision with
+  a much narrower scope than migrating the whole product.
+- `TASK-104` is retitled to "Dual-WAN routing integration" to remove its overlap
+  with TASK-109, and `REQ-002` now points at TASK-102/TASK-105 rather than at the
+  NAT tasks.
