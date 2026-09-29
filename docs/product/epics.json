@@ -1,0 +1,104 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-09-29T00:00:00Z",
+  "epics": [
+    {
+      "id": "EPIC-000",
+      "title": "Project Foundation & Hardware Baseline",
+      "goal": "Make the repository the source of truth and lock down the proven hardware facts before feature work.",
+      "priority": "P0",
+      "feature_ids": ["FEAT-000"],
+      "status": "IN_PROGRESS"
+    },
+    {
+      "id": "EPIC-001",
+      "title": "Network & Travel Router",
+      "goal": "SoftAP + STA + LTE with automatic WAN failover and NAT.",
+      "priority": "P0",
+      "feature_ids": ["FEAT-001", "FEAT-002", "FEAT-003"],
+      "status": "NOT_STARTED",
+      "risk_note": "Highest technical risk in the product. See RISK-001, RISK-002."
+    },
+    {
+      "id": "EPIC-002",
+      "title": "Camera Live Streaming",
+      "goal": "MJPEG stream and control page.",
+      "priority": "P1",
+      "feature_ids": ["FEAT-004", "FEAT-005"],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "EPIC-003",
+      "title": "Location Tracking",
+      "goal": "GNSS fix with cellular LBS fallback, and a map page.",
+      "priority": "P0",
+      "feature_ids": ["FEAT-006", "FEAT-007", "FEAT-008"],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "EPIC-004",
+      "title": "Cloud Telemetry & Command Engine",
+      "goal": "Direct device-to-broker MQTT telemetry publish and inbound command execution.",
+      "priority": "P0",
+      "feature_ids": ["FEAT-009", "FEAT-010", "FEAT-011", "FEAT-012"],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "EPIC-005",
+      "title": "SMS Command Interface",
+      "goal": "Inbound SMS command engine with whitelist and auto-reply.",
+      "priority": "P1",
+      "feature_ids": ["FEAT-013", "FEAT-014"],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "EPIC-006",
+      "title": "Telephony Engine",
+      "goal": "Call management, dialpad, full-duplex audio.",
+      "priority": "P1",
+      "feature_ids": ["FEAT-015", "FEAT-016"],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "EPIC-007",
+      "title": "Offline Voice Recognition",
+      "goal": "ESP-SR wake word and voice-activated dialing.",
+      "priority": "P2",
+      "feature_ids": ["FEAT-017", "FEAT-018"],
+      "status": "NOT_STARTED"
+    },
+    {
+      "id": "EPIC-008",
+      "title": "Web Portal, Platform & Security",
+      "goal": "Async web console, NVS persistence, security hardening, storage.",
+      "priority": "P0",
+      "feature_ids": ["FEAT-019", "FEAT-020", "FEAT-021", "FEAT-022"],
+      "status": "NOT_STARTED"
+    }
+  ],
+  "features": [
+    {"id": "FEAT-000", "epic_id": "EPIC-000", "title": "Hardware baseline verification & repo hardening", "requirement_ids": ["REQ-003", "REQ-007", "REQ-008", "REQ-014", "REQ-016", "REQ-023"]},
+    {"id": "FEAT-001", "epic_id": "EPIC-001", "title": "SoftAP + DHCP", "requirement_ids": ["REQ-001"]},
+    {"id": "FEAT-002", "epic_id": "EPIC-001", "title": "STA scan & credentials", "requirement_ids": ["REQ-002"]},
+    {"id": "FEAT-003", "epic_id": "EPIC-001", "title": "Dual-WAN failover + NAT", "requirement_ids": ["REQ-003", "REQ-004"]},
+    {"id": "FEAT-004", "epic_id": "EPIC-002", "title": "Camera capture & MJPEG", "requirement_ids": ["REQ-005"]},
+    {"id": "FEAT-005", "epic_id": "EPIC-002", "title": "Camera control page", "requirement_ids": ["REQ-006"]},
+    {"id": "FEAT-006", "epic_id": "EPIC-003", "title": "GNSS fix", "requirement_ids": ["REQ-007"]},
+    {"id": "FEAT-007", "epic_id": "EPIC-003", "title": "Cellular LBS fallback", "requirement_ids": ["REQ-008"]},
+    {"id": "FEAT-008", "epic_id": "EPIC-003", "title": "Location map page", "requirement_ids": ["REQ-009"]},
+    {"id": "FEAT-009", "epic_id": "EPIC-004", "title": "Broker credential UI + NVS", "requirement_ids": ["REQ-010", "REQ-021"]},
+    {"id": "FEAT-010", "epic_id": "EPIC-004", "title": "Telemetry publish controls", "requirement_ids": ["REQ-011"]},
+    {"id": "FEAT-011", "epic_id": "EPIC-004", "title": "Direct LTE MQTT transport", "requirement_ids": ["REQ-012"]},
+    {"id": "FEAT-012", "epic_id": "EPIC-004", "title": "MQTT command engine", "requirement_ids": ["REQ-013"]},
+    {"id": "FEAT-013", "epic_id": "EPIC-005", "title": "SMS receive + whitelist", "requirement_ids": ["REQ-014"]},
+    {"id": "FEAT-014", "epic_id": "EPIC-005", "title": "SMS command parser", "requirement_ids": ["REQ-015"]},
+    {"id": "FEAT-015", "epic_id": "EPIC-006", "title": "Call management", "requirement_ids": ["REQ-016"]},
+    {"id": "FEAT-016", "epic_id": "EPIC-006", "title": "Dialpad + audio path", "requirement_ids": ["REQ-017"]},
+    {"id": "FEAT-017", "epic_id": "EPIC-007", "title": "ESP-SR engine", "requirement_ids": ["REQ-018"]},
+    {"id": "FEAT-018", "epic_id": "EPIC-007", "title": "Voice contacts + wake dial", "requirement_ids": ["REQ-019"]},
+    {"id": "FEAT-019", "epic_id": "EPIC-008", "title": "Async web console shell", "requirement_ids": ["REQ-020"]},
+    {"id": "FEAT-020", "epic_id": "EPIC-008", "title": "NVS configuration store", "requirement_ids": ["REQ-021"]},
+    {"id": "FEAT-021", "epic_id": "EPIC-008", "title": "Security hardening", "requirement_ids": ["REQ-022"]},
+    {"id": "FEAT-022", "epic_id": "EPIC-008", "title": "SD storage", "requirement_ids": ["REQ-023"]}
+  ]
+}

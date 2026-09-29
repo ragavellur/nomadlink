@@ -1,0 +1,12 @@
+# NomadLink — Architecture Decision Records
+
+Decisions are immutable once accepted. Superseding a decision creates a new ADR.
+
+| ADR | Title | Status | Date |
+|---|---|---|---|
+| [ADR-001](ADR-001-repository-as-source-of-truth.md) | Repository is the source of truth | Accepted | 2026-09-29 |
+| [ADR-002](ADR-002-hardware-facts-override-prd.md) | Verified hardware facts override the PRD | Accepted | 2026-09-29 |
+| [ADR-003](ADR-003-json-authoritative-dashboard-rendered.md) | JSON is authoritative, HTML is generated | Accepted | 2026-09-29 |
+| [ADR-004](ADR-004-direct-device-to-broker-mqtt.md) | Direct device-to-broker MQTT, no relay | Accepted | 2026-09-29 |
+| [ADR-005](ADR-005-firmware-framework-selection.md) | Firmware framework selection | PROPOSED | 2026-09-29 |
+| [ADR-006](ADR-006-location-source-hierarchy.md) | Location source hierarchy: LBS then GNSS | Proposed | 2026-09-29 |

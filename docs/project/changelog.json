@@ -1,0 +1,67 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-09-29T00:00:00Z",
+  "note": "Append-only. Never rewrite history here; add a new entry. Rule 24: never overwrite historical evidence.",
+  "activity": [
+    {
+      "timestamp": "2026-09-29T00:00:00Z",
+      "type": "PROJECT_CREATED",
+      "actor": "user",
+      "summary": "NomadLink project created. Product Requirement Document v2.0 extracted into 23 traceable requirements across 9 epics and 22 features.",
+      "changes": [
+        "Created docs/product/requirements.json with 23 requirements, each carrying hardware_verified and verification_note",
+        "Created docs/product/epics.json",
+        "Created docs/project/backlog.json with 14 tasks",
+        "Created docs/project/risks.json with 9 risks, 3 of them S0",
+        "Created docs/project/bugs.json with 4 defects",
+        "Created docs/project/test-results.json with 13 tests, 5 passing",
+        "Created docs/project/sprint-board.json with Sprint 1 scoped to de-risking",
+        "Created docs/testing/test-strategy.md",
+        "Created docs/decisions/ ADR-001 through ADR-006",
+        "Created scripts/project-tracker/validate.py enforcing the Rule 44 invariants"
+      ],
+      "requirement_ids": [],
+      "task_ids": ["TASK-001"]
+    },
+    {
+      "timestamp": "2026-09-29T00:00:00Z",
+      "actor": "user",
+      "type": "DEFECT_FOUND",
+      "summary": "BUG-002: device MQTT CONNECT never confirmed. The AT+CIPSEND '>' prompt and the broker CONNACK bytes are not newline-terminated, so the line-based reader cannot consume either.",
+      "requirement_ids": ["REQ-012"],
+      "task_ids": ["TASK-405"]
+    },
+    {
+      "timestamp": "2026-09-29T00:00:00Z",
+      "actor": "user",
+      "type": "DEFECT_FOUND",
+      "summary": "BUG-003: the tracker's GNSS wait loop increments an integer by 1000 per iteration instead of using a millis() deadline, so it exits after seconds rather than the intended 15 minutes.",
+      "requirement_ids": ["REQ-007"],
+      "task_ids": ["TASK-301"]
+    },
+    {
+      "timestamp": "2026-09-29T00:00:00Z",
+      "actor": "user",
+      "type": "PRD_DEFECT_FOUND",
+      "summary": "BUG-004 / ADR-002: PRD FR-3.1 names AT+CGNSINF, which does not exist on this module. AT+CGPSINFO is valid. The PRD also assumes PPP, asserts unmeasured NFRs, and omits the working LBS fallback capability entirely.",
+      "requirement_ids": ["REQ-007", "REQ-008", "REQ-003", "REQ-004", "REQ-017", "REQ-018"],
+      "task_ids": ["TASK-301"]
+    },
+    {
+      "timestamp": "2026-09-29T00:00:00Z",
+      "actor": "user",
+      "type": "CAPABILITY_VERIFIED",
+      "summary": "REQ-008 cellular LBS fallback VERIFIED: AT+CLBS=1,1 returned +CLBS: 0,18.481703,73.897415,550, independently corroborated by the GNSS fix at 18.480776, 73.897998. Requires the 4G patch antenna (CSQ 16 -> 26) and AT+SIMEI populated.",
+      "requirement_ids": ["REQ-008"],
+      "task_ids": ["TASK-303"]
+    },
+    {
+      "timestamp": "2026-09-29T00:00:00Z",
+      "actor": "user",
+      "type": "SECURITY_RISK_ACCEPTED",
+      "summary": "RISK-008: a live GitHub token with repo scope was shared in plaintext. The user elected to keep it valid. It is not written to any repository file; gh keyring auth is used instead.",
+      "requirement_ids": ["REQ-022"],
+      "task_ids": []
+    }
+  ]
+}

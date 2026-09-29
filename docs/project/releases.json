@@ -1,0 +1,14 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-09-29T00:00:00Z",
+  "note": "No releases yet. Release-readiness checks have not been defined or passed. Rule 37: do not call something a production release until the readiness checks pass.",
+  "release_readiness_checks": [
+    "All P0 requirements VERIFIED or formally descoped",
+    "Full hardware regression baseline PASS on the release commit",
+    "No open S0/S1 defects",
+    "Security review complete: no secrets in git, TLS working, admin auth enforced",
+    "Validator passes",
+    "Release notes written and tag pushed"
+  ],
+  "releases": []
+}

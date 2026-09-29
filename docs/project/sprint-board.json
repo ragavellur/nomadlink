@@ -1,0 +1,47 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-09-29T00:00:00Z",
+  "sprints": [
+    {
+      "id": "SPRINT-001",
+      "title": "Foundation, safety and de-risking",
+      "goal": "Make the repository trustworthy as the source of truth, remove the credential leak risk, and run the three blocking hardware experiments that determine whether the product's headline features are feasible at all.",
+      "start_date": "2026-09-29",
+      "end_date": "2026-10-10",
+      "status": "IN_PROGRESS",
+      "committed_task_ids": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-019", "TASK-020", "TASK-021", "TASK-022"],
+      "why_these": [
+        "TASK-004 is first because tracker/tracker.ino contains a hardcoded broker credential. Committing that file before fixing it puts a live secret into git history, which is unrecoverable without a rewrite.",
+        "TASK-019 is the framework decision and it blocks the entire network epic. It cannot be deferred.",
+        "TASK-020/021/022 are the three blocking experiments: PPP on the Airtel SIM (RISK-002), audio hardware population (RISK-003), and GPS cold start inside a recorded benchmark harness (RISK-001 context). Each can descope a major requirement.",
+        "TASK-301, TASK-303 and TASK-405 are deliberately NOT in this sprint even though they are P0, because each depends on TASK-019's outcome or on TASK-001/004 completing first."
+      ],
+      "out_of_scope": [
+        "Any NAT routing code (blocked on TASK-019)",
+        "Any web portal work (integration surface, but the framework choice is unresolved)",
+        "ESP-SR / voice (blocked on RISK-003)"
+      ],
+      "exit_criteria": [
+        "Repository initialised and committed with a clean history and no secrets",
+        "Broker credential removed from tracked source and rotation flagged to the user",
+        "ADR-005 framework decision Accepted or Rejected with a written rationale",
+        "RISK-002 answered: does PPP produce an IP on the Airtel SIM, yes or no",
+        "RISK-003 answered: are the I2S mic and DAC physically populated, yes or no",
+        "Validator script demonstrated failing on a seeded invalid state",
+        "HTML dashboard generated from JSON and viewable in a browser"
+      ],
+      "verification_summary": "Pending sprint execution.",
+      "outcome": null,
+      "carried_over": [],
+      "defects_found": ["BUG-001", "BUG-002", "BUG-003", "BUG-004"],
+      "risks_reviewed": ["RISK-001", "RISK-002", "RISK-003", "RISK-004", "RISK-005", "RISK-006", "RISK-007", "RISK-008", "RISK-009"]
+    }
+  ],
+  "sprint-002": {
+    "id": "SPRINT-002",
+    "title": "Location service and direct MQTT telemetry",
+    "goal": "Prove a position end to end and land the first real telemetry from the device to the broker, both on the framework chosen in Sprint 1.",
+    "status": "PLANNED",
+    "note": "Not committed. Depends on Sprint 1 outcomes. If RISK-002 kills PPP, the transport work must use the AT+CIPOPEN path per ADR-004."
+  }
+}

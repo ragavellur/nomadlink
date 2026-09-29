@@ -1,0 +1,2589 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-09-29T00:00:00Z",
+  "legend": {
+    "states": [
+      "BACKLOG",
+      "READY",
+      "IN_PROGRESS",
+      "BLOCKED",
+      "CODE_REVIEW",
+      "TESTING",
+      "VERIFICATION",
+      "DONE",
+      "REOPENED",
+      "CANCELLED"
+    ],
+    "priorities": {
+      "P0": "Critical",
+      "P1": "High",
+      "P2": "Medium",
+      "P3": "Low"
+    }
+  },
+  "tasks": [
+    {
+      "id": "TASK-001",
+      "title": "Initialise repository, .gitignore, README, and commit existing hardware baselines",
+      "type": "infrastructure",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [],
+      "priority": "P0",
+      "status": "IN_PROGRESS",
+      "dependencies": [],
+      "description": "git init, add .gitignore excluding build output and secrets, write README describing the product, verified hardware baseline and build instructions, and make the initial commit of the surviving Arduino diagnostic sketches.",
+      "acceptance_criteria": [
+        "git log shows a non-empty initial commit",
+        "No build/ directory, no secrets.h, no .env is tracked",
+        "README documents the verified hardware baseline including the CIPOPEN-not-CIPSTART and CLBS-with-CID findings"
+      ],
+      "definition_of_done": [
+        "Committed with message chore(repo): initialise NomadLink repository",
+        "Sprint board and project-status JSON updated",
+        "Commit SHA recorded"
+      ],
+      "test_ids": [],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": "In progress this session."
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "2026-09-29T00:00:00Z",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-002",
+      "title": "Record hardware baseline as executable regression sketches",
+      "type": "infrastructure",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [
+        "REQ-003",
+        "REQ-007",
+        "REQ-008"
+      ],
+      "priority": "P0",
+      "status": "READY",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "description": "Convert the surviving diagnostics (gnss_hold, lbsmatrix, cam_diag, sd_diag) into a consistent set of regression sketches with uniform markers, and document the exact flash/observe procedure for each.",
+      "acceptance_criteria": [
+        "Each sketch prints a MARK-START and a terminal MARK-DONE marker",
+        "Each sketch documents its expected success output in docs/testing/test-strategy.md",
+        "Antenna-attached state is an explicit precondition in each relevant sketch"
+      ],
+      "definition_of_done": [
+        "Committed",
+        "Strategy doc updated",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-001"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-003",
+      "title": "Create project tracking validator and dashboard generator",
+      "type": "infrastructure",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [],
+      "priority": "P0",
+      "status": "READY",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "description": "Write scripts/project-tracker/validate.py enforcing the Rule 44 invariants, and render.py generating the HTML dashboards from JSON.",
+      "acceptance_criteria": [
+        "validate.py exits non-zero on a DONE task with no commit SHA",
+        "validate.py exits non-zero on a DONE task whose verification is not VERIFIED",
+        "validate.py exits non-zero on a DONE task with no evidence",
+        "validate.py detects orphan REQ/TASK/TEST references",
+        "render.py regenerates all HTML from JSON with no manual HTML editing"
+      ],
+      "definition_of_done": [
+        "Committed",
+        "Validator demonstrated failing on a seeded bad fixture",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-002"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-004",
+      "title": "Remove hardcoded HiveMQ credentials from tracker source",
+      "type": "security",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [
+        "REQ-021",
+        "REQ-022"
+      ],
+      "priority": "P0",
+      "status": "READY",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "description": "tracker/tracker.ino currently contains a broker username and password as compile-time #defines. This is a Rule 27 violation and is the FIRST commit risk: the credential would enter git history. Move to NVS / secrets.h (gitignored) before any further commits that touch this file.",
+      "acceptance_criteria": [
+        "No credential literal appears in any tracked file",
+        "git grep for the known credential strings returns nothing in tracked content",
+        "Credentials load from NVS or a gitignored secrets.h",
+        "Credential must be rotated by the user since it was exposed in plaintext in chat"
+      ],
+      "definition_of_done": [
+        "Committed",
+        "grep evidence recorded",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-003"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-101",
+      "title": "Bring up SoftAP with internal DHCP",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-001",
+      "story_id": "STORY-001",
+      "requirement_ids": [
+        "REQ-001"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-001",
+        "TASK-019"
+      ],
+      "description": "SoftAP SSID NomadLink-XXXX, WPA2-PSK, internal DHCP 192.168.4.x, captive portal redirect stub.",
+      "acceptance_criteria": [
+        "A client associates and receives a 192.168.4.x lease",
+        "SSID suffix is derived from MAC",
+        "Captive portal returns an HTTP 302 on the probe path"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "Test passes",
+        "Docs updated",
+        "Committed",
+        "Verified",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-101"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-102",
+      "title": "Wi-Fi STA scan and credential storage",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-002",
+      "story_id": "STORY-002",
+      "requirement_ids": [
+        "REQ-002",
+        "REQ-021"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-101",
+        "TASK-404"
+      ],
+      "description": "Scan and list SSIDs, accept credentials, store in NVS, auto-connect on boot.",
+      "acceptance_criteria": [
+        "Scan returns a non-empty list",
+        "Credentials survive reboot",
+        "No credential is written to the web page source or logs"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "Test passes",
+        "Docs updated",
+        "Committed",
+        "Verified",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-102"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-103",
+      "title": "A7670E modem driver and connection state machine",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-003",
+      "requirement_ids": [
+        "REQ-003"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-002"
+      ],
+      "description": "Own the UART, run the PWRKEY power-on sequence, drive the data bearer, expose RSSI/registration/operator. Must use AT+CIPOPEN for sockets, never AT+CIPSTART.",
+      "acceptance_criteria": [
+        "Modem reaches +CEREG: 0,1 within 60 s of power-on",
+        "PWRKEY GPIO42 pulse sequence is performed exactly once per boot",
+        "Driver exposes signal strength and operator",
+        "A non-CIPSTART socket path is used"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "Test passes",
+        "Docs updated",
+        "Committed",
+        "Verified",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-103"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-104",
+      "title": "PNAT-based NAT router with dual-WAN failover",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-003",
+      "requirement_ids": [
+        "REQ-004"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-101",
+        "TASK-103"
+      ],
+      "description": "Route SoftAP clients out via STA when upstream is healthy, via LTE PPP otherwise. Must meet the 3 s failover and 10-15 Mbps NFRs or formally renegotiate them.",
+      "acceptance_criteria": [
+        "Clients reach the internet through STA",
+        "On STA loss, traffic reroutes to LTE without manual intervention",
+        "Measured failover time is recorded and compared against the 3 s NFR",
+        "Measured throughput is recorded and compared against the 10-15 Mbps NFR"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "Test passes",
+        "Throughput and failover measurements recorded",
+        "Committed",
+        "Verified",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-104",
+        "TEST-105"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-405",
+      "title": "Complete direct LTE MQTT transport: CIPSEND prompt and CONNACK parsing",
+      "type": "feature",
+      "epic_id": "EPIC-004",
+      "feature_id": "FEAT-011",
+      "requirement_ids": [
+        "REQ-012"
+      ],
+      "priority": "P0",
+      "status": "READY",
+      "dependencies": [
+        "TASK-004"
+      ],
+      "description": "The socket opens but the MQTT CONNECT is never confirmed. Two known defects: (1) AT+CIPSEND emits a '>' prompt that may not be newline-terminated, so a line-based reader blocks until timeout; (2) broker CONNACK bytes such as 20 02 00 00 are not newline-terminated, so a line parser cannot read them. Replace the line reader with a byte-level reader that recognises the '>' prompt and reads fixed-length CONNACK. Consider migrating to the installed TinyGSM A7672x client, which already uses CIPOPEN correctly.",
+      "acceptance_criteria": [
+        "Device logs MQTT-CONNECT sent",
+        "A CONNACK is received and parsed (expect 0x20 0x02 0x00 0x00)",
+        "A telemetry payload is observed by an independent subscriber on the target cluster",
+        "No bridge, tunnel, relay or cloudflared is involved at any point"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "End-to-end publish observed",
+        "Committed",
+        "Verified with subscriber evidence",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-403"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-406",
+      "title": "MQTT credential storage and broker selection",
+      "type": "feature",
+      "epic_id": "EPIC-004",
+      "feature_id": "FEAT-009",
+      "requirement_ids": [
+        "REQ-010",
+        "REQ-021"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-004"
+      ],
+      "description": "Store broker host, port, client id, username, password and topics in NVS. Support HiveMQ and Adafruit IO targets.",
+      "acceptance_criteria": [
+        "Credentials survive reboot",
+        "No secret in git",
+        "Port 1883 and 8883 both selectable"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "Test passes",
+        "Committed",
+        "Verified",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-401"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-303",
+      "title": "LBS fallback integration into the location service",
+      "type": "feature",
+      "epic_id": "EPIC-003",
+      "feature_id": "FEAT-007",
+      "requirement_ids": [
+        "REQ-008"
+      ],
+      "priority": "P0",
+      "status": "READY",
+      "dependencies": [
+        "TASK-002"
+      ],
+      "description": "Wrap the proven AT+CLBS=1,1 call. Preconditions: patch antenna attached and AT+SIMEI populated from AT+CGSN. Populate the position immediately from LBS, then upgrade to the GNSS fix when it arrives. Record the accuracy radius with the fix and mark the source as LBS or GPS.",
+      "acceptance_criteria": [
+        "Position available within seconds of boot, before any GNSS fix",
+        "Position source is explicitly recorded as LBS or GNSS",
+        "Accuracy radius is carried through to telemetry",
+        "Longitude is not confused with latitude (CLBS returns lon first)"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "Test passes",
+        "Committed",
+        "Verified",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-302"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-301",
+      "title": "GNSS service with uninterrupted cold-start handling",
+      "type": "feature",
+      "epic_id": "EPIC-003",
+      "feature_id": "FEAT-006",
+      "requirement_ids": [
+        "REQ-007"
+      ],
+      "priority": "P0",
+      "status": "READY",
+      "dependencies": [
+        "TASK-002"
+      ],
+      "description": "Bring up the GNSS engine once per boot, keep it powered, and parse NMEA with TinyGPS++. The existing tracker sketch has a counter bug: its '15 minute' loop increments an integer by 1000 per iteration, so it exits after seconds. Use a millis() deadline.",
+      "acceptance_criteria": [
+        "A real millis()-based deadline is used, not an iteration counter",
+        "Fix quality 1 with satsUsed > 0 is required before reporting a GNSS position",
+        "The module is not power-cycled mid-session"
+      ],
+      "definition_of_done": [
+        "Code implemented",
+        "Test passes",
+        "Committed",
+        "Verified",
+        "SHA recorded"
+      ],
+      "test_ids": [
+        "TEST-301"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-019",
+      "title": "Choose and document the firmware framework baseline (ESP-IDF vs Arduino)",
+      "type": "architecture",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [
+        "REQ-004",
+        "REQ-012",
+        "REQ-020"
+      ],
+      "priority": "P0",
+      "status": "READY",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "description": "The PRD allows either ESP-IDF 5.x or Arduino-ESP32 3.x. All working hardware baselines today are Arduino sketches; nomad-sentinel is an ESP-IDF project with MODEM_USE_UART 0 and blocked SD. Every remaining verified capability (NAT via esp32_nat_router, esp_camera, ESP-SR, esp-mqtt) is a first-class ESP-IDF citizen. This decision blocks TASK-101, TASK-103 and TASK-104 and must be made first.",
+      "acceptance_criteria": [
+        "Decision recorded as an ADR with alternatives and consequences",
+        "Rationale addresses NAT/routing feasibility on each framework",
+        "Migration cost for the existing Arduino baselines is stated"
+      ],
+      "definition_of_done": [
+        "ADR committed",
+        "Affected tasks re-pointed",
+        "SHA recorded"
+      ],
+      "test_ids": [],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-105",
+      "title": "Wi-Fi STA credential persistence and auto-reconnect on boot",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-002",
+      "requirement_ids": [
+        "REQ-002"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-102"
+      ],
+      "description": "Load stored STA credentials from NVS at boot and auto-associate, falling back to cellular when no STA link is established.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-002",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-102"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-106",
+      "title": "Automatic APN detection and configuration",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-003",
+      "requirement_ids": [
+        "REQ-003"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-103"
+      ],
+      "description": "Detect APN from the SIM (IMSI MCC/MNC or a lookup table) and configure AT+CGDCONT automatically, with a manual override in the web UI.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-003",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-107",
+      "title": "Network status monitoring surface (RSSI, registration, operator)",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-003",
+      "requirement_ids": [
+        "REQ-003"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-103"
+      ],
+      "description": "Expose CSQ, CEREG/CGREG state and COPS operator to the web dashboard. Must also surface antenna state, because forgetting the 4G patch antenna silently breaks LBS.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-003",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-103"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-108",
+      "title": "WAN health evaluation and failover state machine",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-003",
+      "requirement_ids": [
+        "REQ-004"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-101",
+        "TASK-103"
+      ],
+      "description": "Continuously evaluate STA link health and LTE readiness, and drive a state machine that selects the active WAN. This is the control half of REQ-004.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-004",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-105"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-109",
+      "title": "LwIP NAT forwarding between SoftAP clients and the active WAN",
+      "type": "feature",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-003",
+      "requirement_ids": [
+        "REQ-004"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-108"
+      ],
+      "description": "Implement packet forwarding and NAT translation. Blocked on RISK-002: requires a real IP interface, which most likely means PPP must work first.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-004",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-104"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-110",
+      "title": "Throughput and failover-time measurement harness",
+      "type": "performance",
+      "epic_id": "EPIC-001",
+      "feature_id": "FEAT-003",
+      "requirement_ids": [
+        "REQ-004"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-109"
+      ],
+      "description": "Measure actual NAT throughput and failover time and compare against the PRD NFRs of 10-15 Mbps and under 3 s. Produce evidence for a renegotiation decision. See RISK-001.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-004",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-104",
+        "TEST-105"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-201",
+      "title": "Camera driver and frame capture with PSRAM buffers",
+      "type": "feature",
+      "epic_id": "EPIC-002",
+      "feature_id": "FEAT-004",
+      "requirement_ids": [
+        "REQ-005"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-019"
+      ],
+      "description": "Bring up the OV2640 on the V1 pinout, allocate frame buffers in PSRAM, and expose frame capture. Sensor-level capture is already VERIFIED; the streaming pipeline is not.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-005",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-201"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-202",
+      "title": "MJPEG encode and HTTP /stream endpoint",
+      "type": "feature",
+      "epic_id": "EPIC-002",
+      "feature_id": "FEAT-004",
+      "requirement_ids": [
+        "REQ-005"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-201"
+      ],
+      "description": "Encode frames as MJPEG and stream them over multipart HTTP to connected clients.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-005",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-201"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-203",
+      "title": "Camera control page: resolution, quality, FPS, snapshot",
+      "type": "feature",
+      "epic_id": "EPIC-002",
+      "feature_id": "FEAT-005",
+      "requirement_ids": [
+        "REQ-006"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-202"
+      ],
+      "description": "Build the /camera page with interactive controls for resolution, JPEG quality, frame rate and snapshot capture.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-006",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-202"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-302",
+      "title": "Position service exposing lat/lon/alt/speed/sats with a source field",
+      "type": "feature",
+      "epic_id": "EPIC-003",
+      "feature_id": "FEAT-006",
+      "requirement_ids": [
+        "REQ-007"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-301"
+      ],
+      "description": "Single position struct with an explicit source (GNSS or LBS) and accuracy. Implements the ADR-006 hierarchy: publish LBS immediately, upgrade to GNSS when quality >= 1 and sats_used > 0.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-007",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-301",
+        "TEST-302"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-304",
+      "title": "Location web page with Leaflet/OpenStreetMap map",
+      "type": "feature",
+      "epic_id": "EPIC-003",
+      "feature_id": "FEAT-008",
+      "requirement_ids": [
+        "REQ-009"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-302"
+      ],
+      "description": "Live lat/lon/alt/speed/sats display plus an embedded interactive Leaflet map. The map must visually distinguish an LBS fix from a GNSS fix, per ADR-006.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-009",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-303"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-401",
+      "title": "Cloud broker credential UI (HiveMQ and Adafruit IO)",
+      "type": "feature",
+      "epic_id": "EPIC-004",
+      "feature_id": "FEAT-009",
+      "requirement_ids": [
+        "REQ-010"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-404"
+      ],
+      "description": "Form to enter broker URL, port, client id, username, password and topics for HiveMQ, plus the equivalent Adafruit IO fields. Values go to NVS, never to source.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-010",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-401"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-402",
+      "title": "NVS-backed configuration store",
+      "type": "feature",
+      "epic_id": "EPIC-008",
+      "feature_id": "FEAT-020",
+      "requirement_ids": [
+        "REQ-010",
+        "REQ-021"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-019"
+      ],
+      "description": "Persist Wi-Fi credentials, broker credentials, APN, contacts, voice triggers and the SMS whitelist in NVS/LittleFS. Replaces the current hardcoded-credential pattern.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-010, REQ-021",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-802"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-403",
+      "title": "Telemetry destination selector and publish interval",
+      "type": "feature",
+      "epic_id": "EPIC-004",
+      "feature_id": "FEAT-010",
+      "requirement_ids": [
+        "REQ-011"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-406"
+      ],
+      "description": "Destination selector (Disabled / HiveMQ / Adafruit IO), Start/Stop controls and a configurable interval from 5 to 3600 seconds.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-011",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-402"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-404",
+      "title": "Web portal authentication and secret handling",
+      "type": "security",
+      "epic_id": "EPIC-008",
+      "feature_id": "FEAT-021",
+      "requirement_ids": [
+        "REQ-022"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-019"
+      ],
+      "description": "Enforce HTTP Basic Auth on the admin portal, ensure no secret is ever returned in a page or log, and adopt the NVS store so no secret lives in source.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-022",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-803"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-407",
+      "title": "MQTT command subscription and JSON parser",
+      "type": "feature",
+      "epic_id": "EPIC-004",
+      "feature_id": "FEAT-012",
+      "requirement_ids": [
+        "REQ-013"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-405"
+      ],
+      "description": "Subscribe to the command topic, parse command_id/action/params JSON, and dispatch to handlers. Depends on TASK-405 completing first.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-013",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-404"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-408",
+      "title": "Command execution and response publishing",
+      "type": "feature",
+      "epic_id": "EPIC-004",
+      "feature_id": "FEAT-012",
+      "requirement_ids": [
+        "REQ-013"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-407"
+      ],
+      "description": "Execute GET_STATUS / TOGGLE_ROUTER / REBOOT / SEND_SMS / DIAL_NUMBER and publish a matching result to the response topic.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-013",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-404"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-501",
+      "title": "SMS receive interception via +CMTI with whitelist enforcement",
+      "type": "feature",
+      "epic_id": "EPIC-005",
+      "feature_id": "FEAT-013",
+      "requirement_ids": [
+        "REQ-014"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-103"
+      ],
+      "description": "Intercept +CMTI URCs, read the message with AT+CMGR, and reject any sender not on the whitelist. Outbound SMS is already VERIFIED; inbound interception is not.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-014",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-501"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-502",
+      "title": "SMS whitelist management surface",
+      "type": "feature",
+      "epic_id": "EPIC-005",
+      "feature_id": "FEAT-013",
+      "requirement_ids": [
+        "REQ-014"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-501"
+      ],
+      "description": "Web UI to add and remove authorised numbers, stored in NVS.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-014",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-503",
+      "title": "SMS command parser and auto-reply",
+      "type": "feature",
+      "epic_id": "EPIC-005",
+      "feature_id": "FEAT-014",
+      "requirement_ids": [
+        "REQ-015"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-501"
+      ],
+      "description": "Case-insensitive STATUS / LOCATION / STREAM ON / STREAM OFF / REBOOT / CALL <number> parsing with automatic reply to the sender.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-015",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-502"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-601",
+      "title": "Incoming call detection with auto-answer, reject and whitelist",
+      "type": "feature",
+      "epic_id": "EPIC-006",
+      "feature_id": "FEAT-015",
+      "requirement_ids": [
+        "REQ-016"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-103"
+      ],
+      "description": "Detect RING/+CLIP, apply configurable auto-answer after N rings, reject unauthorised callers with ATH, and surface an Accept/Hang Up popup.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-016",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-601"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-602",
+      "title": "Web telephony control surface and call status",
+      "type": "feature",
+      "epic_id": "EPIC-006",
+      "feature_id": "FEAT-015",
+      "requirement_ids": [
+        "REQ-016"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-601"
+      ],
+      "description": "Real-time call state, duration display and the Accept/Hang Up popup in the web portal.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-016",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-603",
+      "title": "Web dialpad and contact-based dialling",
+      "type": "feature",
+      "epic_id": "EPIC-006",
+      "feature_id": "FEAT-016",
+      "requirement_ids": [
+        "REQ-017"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-602"
+      ],
+      "description": "Dialpad UI and saved contacts issuing ATD<number>; over the API. ATD dialling is already VERIFIED at the AT level.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-017",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-602"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-604",
+      "title": "Full-duplex I2S audio path (mic capture and DAC playback)",
+      "type": "feature",
+      "epic_id": "EPIC-006",
+      "feature_id": "FEAT-016",
+      "requirement_ids": [
+        "REQ-017"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-019"
+      ],
+      "description": "I2S microphone capture and I2S DAC playback routed for calls. BLOCKED on RISK-003: the presence and wiring of the audio hardware on this board is unconfirmed.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-017",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-602"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-701",
+      "title": "ESP-SR engine with latency benchmark",
+      "type": "feature",
+      "epic_id": "EPIC-007",
+      "feature_id": "FEAT-017",
+      "requirement_ids": [
+        "REQ-018"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-019"
+      ],
+      "description": "ESP-SR WakeNet + MultiNet running fully offline, with a measured latency benchmark against the PRD sub-800ms NFR. BLOCKED on RISK-003.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-018",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-701"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-702",
+      "title": "Wake-word detection with audio feedback",
+      "type": "feature",
+      "epic_id": "EPIC-007",
+      "feature_id": "FEAT-017",
+      "requirement_ids": [
+        "REQ-018"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-701"
+      ],
+      "description": "Wake-word recognition with a confirmation beep played through the DAC, then open a recognition window.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-018",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-703",
+      "title": "Voice contacts directory and voice-activated dialling",
+      "type": "feature",
+      "epic_id": "EPIC-007",
+      "feature_id": "FEAT-018",
+      "requirement_ids": [
+        "REQ-019"
+      ],
+      "priority": "P3",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-702"
+      ],
+      "description": "Web UI to manage contacts and phonetic triggers, then the wake-word -> 5s window -> match -> verbal confirm -> ATD sequence.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-019",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-702"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-801",
+      "title": "ESPAsyncWebServer shell and navigation layout",
+      "type": "feature",
+      "epic_id": "EPIC-008",
+      "feature_id": "FEAT-019",
+      "requirement_ids": [
+        "REQ-020"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-019"
+      ],
+      "description": "Async web server with the seven-section navigation: Dashboard, Network, Camera, Location, Cloud, SMS, Telephony.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-020",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-801"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-802",
+      "title": "Dashboard view: network, GPS quick view, system stats",
+      "type": "feature",
+      "epic_id": "EPIC-008",
+      "feature_id": "FEAT-019",
+      "requirement_ids": [
+        "REQ-020"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-801"
+      ],
+      "description": "Landing page showing WAN mode, Wi-Fi signal, 4G RSSI, operator, fix status, lat/lon, free RAM, PSRAM usage and minimum-ever-free-heap.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-020",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-801"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-803",
+      "title": "Responsive layout and styling across all pages",
+      "type": "feature",
+      "epic_id": "EPIC-008",
+      "feature_id": "FEAT-019",
+      "requirement_ids": [
+        "REQ-020"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-801"
+      ],
+      "description": "Responsive CSS and consistent component styling across every portal page.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-020",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-801"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-804",
+      "title": "TLS transport for cloud connectivity",
+      "type": "security",
+      "epic_id": "EPIC-008",
+      "feature_id": "FEAT-021",
+      "requirement_ids": [
+        "REQ-022"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-405"
+      ],
+      "description": "Configure AT+CSSLCFG with SNI and certificate installation so MQTT runs over TLS 8883 rather than plaintext 1883. BLOCKED on RISK-005: untested on this firmware.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-022",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-803"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-805",
+      "title": "SD card mount and storage integration",
+      "type": "feature",
+      "epic_id": "EPIC-008",
+      "feature_id": "FEAT-022",
+      "requirement_ids": [
+        "REQ-023"
+      ],
+      "priority": "P2",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-019"
+      ],
+      "description": "Mount the card and use it for snapshots, GNSS track logs and device logs. BLOCKED on BUG-001: works under Arduino, fails under ESP-IDF with err=0x107.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-023",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-804"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-020",
+      "title": "Experiment: PPP data path on the Airtel SIM",
+      "type": "spike",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [
+        "REQ-004"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "description": "Run RISK-002. The earlier PPP failure (+CGREG: 0,3, CGACT 1,0) was on a Jio SIM and looks like a provisioning symptom, not a hardware fault. Retest on the Airtel SIM, which is proven to attach and yield an IP via CGPADDR. Outcome decides whether REQ-004 NAT routing is achievable at all.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-004",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-020"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-021",
+      "title": "Experiment: confirm audio hardware population on the board",
+      "type": "spike",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [
+        "REQ-017",
+        "REQ-019"
+      ],
+      "priority": "P0",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "description": "Run RISK-003. Physically inspect whether the I2S MEMS microphone and I2S DAC are populated, and if so run a mic-to-DAC loopback test. nomad-sentinel TASKS.md 1.11 records the audio path as UNSUPPORTED. Outcome decides whether ESP-SR and full-duplex voice descope.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-017, REQ-019",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-021"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    },
+    {
+      "id": "TASK-022",
+      "title": "Experiment: GPS cold-start benchmark harness",
+      "type": "spike",
+      "epic_id": "EPIC-000",
+      "feature_id": "FEAT-000",
+      "requirement_ids": [
+        "REQ-007"
+      ],
+      "priority": "P1",
+      "status": "BACKLOG",
+      "dependencies": [
+        "TASK-001"
+      ],
+      "description": "Repeat the cold-start measurement several times to characterise the real distribution of time-to-first-fix, rather than relying on a single 69 s observation. Feeds the indoor-usability and failover design.",
+      "acceptance_criteria": [
+        "Implementation satisfies the acceptance criteria of REQ-007",
+        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
+        "Documentation updated and commit SHA recorded"
+      ],
+      "definition_of_done": [
+        "Code implemented and formatted",
+        "Static checks pass",
+        "Unit tests pass where logic exists",
+        "Applicable integration/E2E tests pass",
+        "Acceptance criteria individually satisfied",
+        "Documentation updated",
+        "Git commit created",
+        "Commit SHA recorded",
+        "Verification evidence recorded",
+        "Project JSON and HTML updated and committed",
+        "No known blocking defect"
+      ],
+      "test_ids": [
+        "TEST-301"
+      ],
+      "verification": {
+        "status": "NOT_VERIFIED",
+        "evidence": [],
+        "verified_by": "",
+        "verified_at": "",
+        "reason": ""
+      },
+      "git": {
+        "commit_sha": "",
+        "branch": "main"
+      },
+      "timestamps": {
+        "created_at": "2026-09-29T00:00:00Z",
+        "started_at": "",
+        "completed_at": "",
+        "verified_at": "",
+        "last_updated_at": "2026-09-29T00:00:00Z"
+      }
+    }
+  ]
+}

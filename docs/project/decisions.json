@@ -1,0 +1,94 @@
+{
+  "product": "NomadLink",
+  "schema_version": "1.0",
+  "note": "Indexes docs/decisions/ADR-*.md. The Markdown file is authoritative; this is the machine-readable view.",
+  "decisions": [
+    {
+      "id": "DEC-001",
+      "adr_id": "ADR-001",
+      "title": "The repository is the source of truth",
+      "status": "Accepted",
+      "date": "2026-09-29",
+      "file": "docs/decisions/ADR-001-repository-as-source-of-truth.md",
+      "relates_to": [],
+      "blocks": [],
+      "summary": "- **Status:** Accepted"
+    },
+    {
+      "id": "DEC-002",
+      "adr_id": "ADR-002",
+      "title": "Verified hardware facts override the PRD",
+      "status": "Accepted",
+      "date": "2026-09-29",
+      "file": "docs/decisions/ADR-002-hardware-facts-override-prd.md",
+      "relates_to": [],
+      "blocks": [
+        "TASK-004"
+      ],
+      "summary": "- **Status:** Accepted"
+    },
+    {
+      "id": "DEC-003",
+      "adr_id": "ADR-003",
+      "title": "JSON is the source of truth, HTML is generated",
+      "status": "Accepted",
+      "date": "2026-09-29",
+      "file": "docs/decisions/ADR-003-json-source-of-truth-html-generated.md",
+      "relates_to": [
+        "ADR-001"
+      ],
+      "blocks": [],
+      "summary": "- **Status:** Accepted"
+    },
+    {
+      "id": "DEC-004",
+      "adr_id": "ADR-004",
+      "title": "Direct device-to-broker MQTT, no relay",
+      "status": "Accepted",
+      "date": "2026-09-29",
+      "file": "docs/decisions/ADR-004-direct-device-to-broker-mqtt.md",
+      "relates_to": [],
+      "blocks": [
+        "TASK-019",
+        "TASK-405"
+      ],
+      "summary": "- **Status:** Accepted"
+    },
+    {
+      "id": "DEC-005",
+      "adr_id": "ADR-005",
+      "title": "Firmware framework selection",
+      "status": "Proposed",
+      "date": "2026-09-29",
+      "file": "docs/decisions/ADR-005-firmware-framework-selection.md",
+      "relates_to": [],
+      "blocks": [
+        "TASK-019",
+        "TASK-101",
+        "TASK-103",
+        "TASK-104",
+        "TASK-301",
+        "TASK-303",
+        "TASK-405"
+      ],
+      "summary": "- **Status:** PROPOSED \u2014 blocks TASK-101, TASK-103, TASK-104"
+    },
+    {
+      "id": "DEC-006",
+      "adr_id": "ADR-006",
+      "title": "Location source hierarchy: LBS first, then GNSS upgrade",
+      "status": "Proposed",
+      "date": "2026-09-29",
+      "file": "docs/decisions/ADR-006-location-source-hierarchy.md",
+      "relates_to": [],
+      "blocks": [],
+      "summary": "- **Status:** Proposed"
+    }
+  ],
+  "counts": {
+    "Accepted": 4,
+    "Proposed": 2,
+    "Superseded": 0,
+    "Rejected": 0
+  }
+}

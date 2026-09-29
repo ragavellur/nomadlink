@@ -1,0 +1,27 @@
+build/
+build-*/
+sdkconfig.old
+*.bin
+*.elf
+*.map
+node_modules/
+.DS_Store
+.vscode/
+.venv/
+__pycache__/
+*.pyc
+secrets.h
+credentials.json
+.env
+.env.*
+artifacts/
+logs/
+*.log
+
+# ESP-IDF: vendored dependency tree, regenerated from dependencies.lock by the
+# component manager. Committing it adds ~3.3M of third-party code and causes
+# merge conflicts on every dependency bump. dependencies.lock IS committed.
+managed_components/
+
+# Machine-specific ESP-IDF config. sdkconfig.defaults is the committed intent.
+sdkconfig

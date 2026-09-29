@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Risks — NomadLink</title><style>
+:root{--bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--bd:#2a2f3a;--fg:#e6e9ef;--dim:#9aa4b2;
+--acc:#4c9aff;--ok:#3fb950;--warn:#d29922;--err:#f85149;--s0:#f85149;--s1:#ff7b72;--s2:#d29922;--s3:#58a6ff;--s4:#8b949e;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--acc);text-decoration:none}a:hover{text-decoration:underline}
+header{padding:20px 24px;border-bottom:1px solid var(--bd);background:var(--panel);position:sticky;top:0;z-index:10}
+h1{margin:0 0 4px;font-size:20px;letter-spacing:-.01em}
+.sub{color:var(--dim);font-size:12px}
+nav{padding:10px 24px;border-bottom:1px solid var(--bd);background:var(--panel2);display:flex;gap:6px;flex-wrap:wrap}
+nav a{padding:6px 12px;border-radius:6px;background:var(--panel);border:1px solid var(--bd);font-size:13px}
+nav a.on{background:var(--acc);color:#07101f;border-color:var(--acc);font-weight:600}
+main{padding:20px 24px;max-width:1500px}
+h2{font-size:15px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);margin:26px 0 10px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(158px,1fr));gap:10px}
+.card{background:var(--panel);border:1px solid var(--bd);border-radius:9px;padding:12px 14px}
+.card .n{font-size:26px;font-weight:650;line-height:1.1}
+.card .l{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
+table{width:100%;border-collapse:collapse;background:var(--panel);border:1px solid var(--bd);border-radius:9px;overflow:hidden}
+th{background:var(--panel2);text-align:left;padding:9px 11px;font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--dim);border-bottom:1px solid var(--bd)}
+td{padding:9px 11px;border-bottom:1px solid var(--bd);vertical-align:top}
+tr:last-child td{border-bottom:none}
+.board{display:grid;grid-template-columns:repeat(auto-fit,minmax(258px,1fr));gap:12px}
+.col{background:var(--panel2);border:1px solid var(--bd);border-radius:9px;padding:10px;min-height:80px}
+.col h3{margin:0 0 9px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--dim);display:flex;justify-content:space-between}
+.t{background:var(--panel);border:1px solid var(--bd);border-left-width:3px;border-radius:6px;padding:9px 10px;margin-bottom:8px;font-size:12.5px}
+.t.done{border-left-color:var(--ok)}.t.inprog{border-left-color:var(--acc)}
+.t.blocked{border-left-color:var(--err)}.t.ready{border-left-color:var(--warn)}.t.backlog{border-left-color:#4b5563}
+.tid{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10.5px;color:var(--dim)}
+.tt{font-weight:600;margin:3px 0 5px}
+.tag{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;background:var(--panel2);border:1px solid var(--bd);color:var(--dim);margin:0 3px 3px 0}
+.p-P0{background:#4a1416;color:#ff9d96;border-color:#6e2226}
+.p-P1{background:#3d2a10;color:#e3b341;border-color:#5c4218}
+.p-P2{background:#12324d;color:#79c0ff;border-color:#1d4b73}
+.s-VERIFIED{background:#12361c;color:#7ee787;border-color:#1f5c2e}
+.s-PARTIALLY_VERIFIED{background:#3d2a10;color:#e3b341;border-color:#5c4218}
+.s-NOT_STARTED{background:#262b33;color:var(--dim)}
+.s-PASS{background:#12361c;color:#7ee787;border-color:#1f5c2e}
+.s-FAIL{background:#4a1416;color:#ff9d96;border-color:#6e2226}
+.s-NOT_RUN{background:#262b33;color:var(--dim)}
+.sv-S0{background:#4a1416;color:#ff9d96}.sv-S1{background:#4a1416;color:#ff9d96}
+.sv-S2{background:#3d2a10;color:#e3b341}.sv-S3{background:#12324d;color:#79c0ff}
+.note{background:var(--panel);border:1px solid var(--bd);border-left:3px solid var(--warn);border-radius:6px;padding:11px 13px;margin:9px 0;font-size:13px}
+.note.ok{border-left-color:var(--ok)}.note.err{border-left-color:var(--err)}
+.muted{color:var(--dim)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+footer{padding:20px 24px;color:var(--dim);font-size:11.5px;border-top:1px solid var(--bd);margin-top:30px}
+</style></head>
+<body>
+<header>
+  <h1>NomadLink</h1>
+  <div class="sub">NomadLink One · NomadLink OS · NomadLink Console · NomadLink Cloud — v0.1.0 — generated 2026-09-29 10:57 UTC</div>
+</header>
+<nav><a href="index.html" class="">Overview</a><a href="sprint-board.html" class="">Sprint Board</a><a href="requirements.html" class="">Requirements</a><a href="tests.html" class="">Tests</a><a href="bugs.html" class="">Defects</a><a href="risks.html" class="on">Risks</a><a href="releases.html" class="">Releases</a><a href="changelog.html" class="">Activity</a></nav>
+<main><h2>Risk Register</h2><table><tr><th>ID</th><th>Sev</th><th>Risk</th><th>Prob</th><th>Impact</th><th>Mitigation</th><th>Status</th></tr><tr><td class='mono'>RISK-001</td><td><span class='tag sv-S0'>S0</span></td><td>NAT throughput NFR of 10-15 Mbps is not achievable alongside the other workloads<br><span class='muted'>PRD NFR 7.1 demands 10-15 Mbps NAT throughput under good LTE signal. The A7670E is a Cat-1 bis LTE-FDD modem; its practical theoretical ceiling is roughly 10 Mbps down and it is rarely sustained in real networks. Adding </span></td><td class='muted'>Almost certain</td><td class='muted'>Critical</td><td class='muted'>Measure early with a dedicated throughput harness before committing to the figure. Set a realistic target and renegotiate the NFR with the stakeholder. Do not build the whole product against an unvalidated number.</td><td>OPEN</td></tr><tr><td class='mono'>RISK-002</td><td><span class='tag sv-S0'>S0</span></td><td>LTE PPP data path has never been established on this device<br><span class='muted'>nomad-sentinel/TASKS.md 1.5 records that PPP failed with +CGREG: 0,3 (registration denied) and CGACT 1,0 on a Jio SIM, and that no IP was assigned. The current working path uses the modem's own TCP/IP stack via AT+CIPOPE</span></td><td class='muted'>Likely</td><td class='muted'>Critical</td><td class='muted'>Re-test PPP on the current Airtel SIM (which is proven to attach and give an IP via CGPADDR) rather than the Jio SIM that failed earlier. The earlier failure may have been SIM provisioning, not hardware. Treat this as th</td><td>OPEN</td></tr><tr><td class='mono'>RISK-003</td><td><span class='tag sv-S0'>S0</span></td><td>Audio hardware presence and wiring are unconfirmed, blocking telephony and voice<br><span class='muted'>The PRD requires I2S MEMS microphone (INMP441), I2S DAC (MAX98357A) and full-duplex audio through the A7670E PCM channel. The Waveshare ESP32-S3-A7670E-4G board we actually have has not been shown to have these parts fit</span></td><td class='muted'>Likely</td><td class='muted'>Critical</td><td class='muted'>Physically inspect the board and confirm whether an I2S mic and amp are populated. Run a loopback test (record from mic, play to DAC) before committing any voice tasks. Update the PRD's hardware table to match the real B</td><td>OPEN</td></tr><tr><td class='mono'>RISK-004</td><td><span class='tag sv-S2'>S2</span></td><td>ESP-SR sub-800ms latency target is unvalidated and may be unreachable<br><span class='muted'>PRD NFR 7.2 requires wake-word and command recognition under 800 ms using ESP-SR WakeNet + MultiNet. This has never been measured on this board. ESP-SR on ESP32-S3 is plausible but the figure was asserted without a bench</span></td><td class='muted'>Possible</td><td class='muted'>Major</td><td class='muted'>Benchmark ESP-SR latency as an isolated spike before building the contacts UI. Measure wake-word detection latency separately from command classification latency.</td><td>OPEN</td></tr><tr><td class='mono'>RISK-005</td><td><span class='tag sv-S1'>S1</span></td><td>TLS on the cellular path is unverified, blocking the security NFR<br><span class='muted'>PRD NFR 4.4 mandates TLS 1.2/1.3 for all cloud connectivity. The working socket path today is plaintext AT+CIPOPEN to port 1883. AT+CSSLCFG, SNI and certificate installation have not been tested on firmware A011B04A7670M</span></td><td class='muted'>Possible</td><td class='muted'>Critical</td><td class='muted'>Test AT+CSSLCFG with SNI against port 8883 as an early isolated experiment. A full MQTT-over-TLS handshake over a CIPSEND socket is more complex than the plaintext path and may justify using the TinyGSM A7672x client lib</td><td>OPEN</td></tr><tr><td class='mono'>RISK-006</td><td><span class='tag sv-S2'>S2</span></td><td>SD card works under Arduino but is blocked under ESP-IDF<br><span class='muted'>The Arduino path writes, reads and deletes on a 3.98 GB FAT32 card with SD_MMC.setPins(5,4,6). nomad-sentinel/TASKS.md 1.7 records every card command failing with err=0x107 under ESP-IDF. GPIO46 is documented as not a us</span></td><td class='muted'>Likely</td><td class='muted'>Major</td><td class='muted'>Diagnose the 0x107 difference. It may be a clock or pin-drive configuration issue, or the Arduino core may be masking a marginal socket. Logged as BUG-001.</td><td>OPEN</td></tr><tr><td class='mono'>RISK-007</td><td><span class='tag sv-S2'>S2</span></td><td>Device runs seven FreeRTOS tasks plus NAT, video and DSP on two cores<br><span class='muted'>The PRD allocates 7 tasks across 2 cores with NAT forwarding, MJPEG encoding and speech DSP. Free heap on this class of device is 2.46 MB internal plus PSRAM, and NAT tables plus frame buffers plus ESP-SR models are all </span></td><td class='muted'>Likely</td><td class='muted'>Major</td><td class='muted'>Enforce task stack sizing discipline, place NAT and modem on core 0, keep video and audio on core 1, and monitor free heap and minimum-ever-free-heap in the dashboard. Define a memory budget per subsystem before implemen</td><td>OPEN</td></tr><tr><td class='mono'>RISK-008</td><td><span class='tag sv-S1'>S1</span></td><td>GitHub personal access token was shared in plaintext and remains valid<br><span class='muted'>A live ghp_ token with repo scope was pasted in plaintext in the session. The user elected to keep it valid. It has repo scope over the whole account, so a leak allows full repository write and read. It is not written to</span></td><td class='muted'>Unlikely</td><td class='muted'>Critical</td><td class='muted'>Revoke and regenerate the token at https://github.com/settings/tokens. Prefer gh auth keyring or a fine-grained token scoped to this repository only. Never place it in .env committed to the repo.</td><td>ACCEPTED_BY_USER</td></tr><tr><td class='mono'>RISK-009</td><td><span class='tag sv-S3'>S3</span></td><td>Cellular LBS accuracy is coarse and operator-dependent<br><span class='muted'>LBS returned 18.481703, 73.897415 with a 550 m accuracy radius. This is a fallback, not a tracking solution. It also depends on the carrier providing the location service and on the 4G patch antenna being physically atta</span></td><td class='muted'>Possible</td><td class='muted'>Minor</td><td class='muted'>Always report accuracy and source. Warn in the dashboard when CSQ is low. Make antenna state an explicit documented precondition.</td><td>MITIGATED</td></tr></table></main>
+<footer>Generated by <code>scripts/project-tracker/render.py</code> from <code>docs/project/*.json</code>.
+JSON is the source of truth; this HTML is generated. Do not hand-edit. ADR-003.</footer>
+</body></html>

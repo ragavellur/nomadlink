@@ -1,0 +1,95 @@
+{
+  "version": "0.1.0",
+  "updated_at": "2026-09-29T00:00:00Z",
+  "bugs": [
+    {
+      "id": "BUG-001",
+      "title": "SD card fails under ESP-IDF (err=0x107) but works under Arduino",
+      "severity": "S2",
+      "priority": "P1",
+      "status": "OPEN",
+      "affected_requirements": ["REQ-023"],
+      "affected_tasks": ["TASK-805"],
+      "environment": "nomad-sentinel ESP-IDF project; Arduino core 3.3.11 works",
+      "steps_to_reproduce": [
+        "Mount SD_MMC with pins CLK=5, CMD=4, D0=6",
+        "Attempt CMD0/CMD8/CMD55/ACMD41 initialisation",
+        "All commands return err=0x107"
+      ],
+      "expected_result": "Card mounts and is readable",
+      "actual_result": "All card commands fail with err=0x107",
+      "root_cause": "UNKNOWN. Not yet diagnosed. Candidates: clock configuration, pin drive strength, marginal card socket contact, or a difference in the IDF SDMMC driver initialisation sequence.",
+      "fix": null,
+      "regression_test": "TEST-804",
+      "verification_status": "NOT_VERIFIED",
+      "commit_sha": "",
+      "notes": "GPIO46 is documented as NOT a usable card-detect line; it reads HIGH with a working card present. Do not gate SD.begin() on it. The Arduino path passing does not prove the socket is sound."
+    },
+    {
+      "id": "BUG-002",
+      "title": "tracker MQTT CONNECT never confirmed; CIPSEND prompt and CONNACK unreadable by line parser",
+      "severity": "S1",
+      "priority": "P0",
+      "status": "OPEN",
+      "affected_requirements": ["REQ-012"],
+      "affected_tasks": ["TASK-405"],
+      "environment": "tracker/tracker.ino over LTE, firmware A011B04A7670M7_F",
+      "steps_to_reproduce": [
+        "Flash tracker.ino",
+        "Observe +CIPOPEN: 0,10 (socket opens successfully)",
+        "Observe that MQTT-CONNECT sent is never logged",
+        "Note that MARK-CONNECTED is printed unconditionally regardless of outcome"
+      ],
+      "expected_result": "MQTT CONNECT sent, CONNACK received, payload visible to a subscriber",
+      "actual_result": "No MQTT-CONNECT sent line. Socket opens, then nothing.",
+      "root_cause": "Two defects. (1) AT+CIPSEND emits a '>' prompt that is not reliably newline-terminated, so the line-based reader blocks until its deadline expires and gives up before the prompt is seen. (2) Broker CONNACK bytes (20 02 00 00) are not newline-terminated, so a line parser cannot consume them at all.",
+      "fix": null,
+      "regression_test": "TEST-403",
+      "verification_status": "NOT_VERIFIED",
+      "commit_sha": "",
+      "notes": "The unconditional MARK-CONNECTED log is itself a reporting defect: it makes a failed connect look successful. Any status derived from it is unreliable."
+    },
+    {
+      "id": "BUG-003",
+      "title": "tracker GNSS wait loop exits after seconds instead of the intended 15 minutes",
+      "severity": "S2",
+      "priority": "P1",
+      "status": "OPEN",
+      "affected_requirements": ["REQ-007"],
+      "affected_tasks": ["TASK-301"],
+      "environment": "tracker/tracker.ino",
+      "steps_to_reproduce": [
+        "Flash tracker.ino with no GNSS fix available",
+        "Observe TRACKER-DONE-NOFIX after a few seconds",
+        "The loop condition reads t < 900000UL && !haveFix, with t += 1000 per iteration"
+      ],
+      "expected_result": "Wait up to 15 minutes for a fix",
+      "actual_result": "Loop exits after roughly 900 iterations, i.e. seconds of wall-clock time",
+      "root_cause": "The loop counter is incremented by 1000 per iteration as a stand-in for milliseconds, but each iteration does not actually take one second. The counter is a fiction; it does not represent elapsed time.",
+      "fix": null,
+      "regression_test": "TEST-301",
+      "verification_status": "NOT_VERIFIED",
+      "commit_sha": "",
+      "notes": "This bug produced a misleading NOFIX result that could be mistaken for a hardware or signal fault."
+    },
+    {
+      "id": "BUG-004",
+      "title": "PRD FR-3.1 specifies a non-existent AT command",
+      "severity": "S3",
+      "priority": "P2",
+      "status": "OPEN",
+      "affected_requirements": ["REQ-007"],
+      "affected_tasks": ["TASK-301"],
+      "environment": "Product Requirement Document v2.0, section 3.3",
+      "steps_to_reproduce": ["Issue AT+CGNSINF", "Receive +CME ERROR"],
+      "expected_result": "Per the PRD, this should return GNSS information",
+      "actual_result": "+CME ERROR. The command does not exist on the A7670E. AT+CGPSINFO is valid.",
+      "root_cause": "The PRD was written without validation against the actual module command set.",
+      "fix": "Correct the PRD to reference AT+CGPSINFO. Recorded in ADR-002.",
+      "regression_test": null,
+      "verification_status": "DOCUMENTED",
+      "commit_sha": "",
+      "notes": "This error was made by a previous agent too, and the resulting +CME ERROR was misread as a hardware fault. An error from a non-existent command is indistinguishable from a real failure unless the command set is checked."
+    }
+  ]
+}

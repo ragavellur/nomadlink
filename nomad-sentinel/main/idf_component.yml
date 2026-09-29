@@ -1,0 +1,5 @@
+dependencies:
+  idf:
+    version: '>=5.4.0'
+  espressif/esp_modem: '^2'
+  espressif/esp_modem_usb_dte: '^1.2.0'
