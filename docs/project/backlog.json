@@ -30,7 +30,7 @@
       "feature_id": "FEAT-000",
       "requirement_ids": [],
       "priority": "P0",
-      "status": "IN_PROGRESS",
+      "status": "DONE",
       "dependencies": [],
       "description": "git init, add .gitignore excluding build output and secrets, write README describing the product, verified hardware baseline and build instructions, and make the initial commit of the surviving Arduino diagnostic sketches.",
       "acceptance_criteria": [
@@ -45,23 +45,29 @@
       ],
       "test_ids": [],
       "verification": {
-        "status": "NOT_VERIFIED",
-        "evidence": [],
-        "verified_by": "",
-        "verified_at": "",
-        "reason": "In progress this session."
+        "status": "VERIFIED",
+        "evidence": [
+          "git log --oneline (7 commits, non-empty)",
+          "git ls-files | grep -cE '^build/|secrets\\.h|\\.env$'  -> only secrets.h.example tracked",
+          "README.md:95 'Use AT+CIPOPEN, never AT+CIPSTART'",
+          "README.md:96 'Use AT+CLBS=1,1, never AT+CLBS=1'"
+        ],
+        "verified_by": "repo inspection, reproducible via make check",
+        "verified_at": "2026-09-29T00:00:00Z",
+        "reason": "Repo initialised with 7 commits, .gitignore covers build/, secrets.h, .env, and the README records both the CIPOPEN-not-CIPSTART and CLBS-with-CID findings."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "ed8bb30",
         "branch": "main"
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
         "started_at": "2026-09-29T00:00:00Z",
-        "completed_at": "",
-        "verified_at": "",
+        "completed_at": "2026-09-29T00:00:00Z",
+        "verified_at": "2026-09-29T00:00:00Z",
         "last_updated_at": "2026-09-29T00:00:00Z"
-      }
+      },
+      "blocker": ""
     },
     {
       "id": "TASK-002",
@@ -120,7 +126,7 @@
       "feature_id": "FEAT-000",
       "requirement_ids": [],
       "priority": "P0",
-      "status": "READY",
+      "status": "DONE",
       "dependencies": [
         "TASK-001"
       ],
@@ -141,23 +147,28 @@
         "TEST-002"
       ],
       "verification": {
-        "status": "NOT_VERIFIED",
-        "evidence": [],
-        "verified_by": "",
-        "verified_at": "",
-        "reason": ""
+        "status": "VERIFIED",
+        "evidence": [
+          "make validate  -> PASS: project state is consistent",
+          "make render    -> 8 dashboards regenerated from JSON",
+          "negative test: injecting a DONE task with no commit sha / no VERIFIED / no evidence made validate.py fail with RULE 1/2/3 VIOLATIONs (all 3 raised, then reverted)"
+        ],
+        "verified_by": "repo inspection, reproducible via make check",
+        "verified_at": "2026-09-29T00:00:00Z",
+        "reason": "validate.py and render.py both exist and work. All five acceptance criteria confirmed, including a negative test proving the validator actually rejects bad state rather than merely existing."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "ed8bb30",
         "branch": "main"
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
-        "completed_at": "",
-        "verified_at": "",
+        "started_at": "2026-09-29T00:00:00Z",
+        "completed_at": "2026-09-29T00:00:00Z",
+        "verified_at": "2026-09-29T00:00:00Z",
         "last_updated_at": "2026-09-29T00:00:00Z"
-      }
+      },
+      "blocker": ""
     },
     {
       "id": "TASK-004",
@@ -170,7 +181,7 @@
         "REQ-022"
       ],
       "priority": "P0",
-      "status": "READY",
+      "status": "VERIFICATION",
       "dependencies": [
         "TASK-001"
       ],
@@ -191,22 +202,27 @@
       ],
       "verification": {
         "status": "NOT_VERIFIED",
-        "evidence": [],
-        "verified_by": "",
+        "evidence": [
+          "secrets_scan.py --history -> PASS (tree + full history)",
+          "tracker.ino loads secrets from gitignored secrets.h",
+          "secrets.h.example tracked as the template"
+        ],
+        "verified_by": "repo inspection",
         "verified_at": "",
-        "reason": ""
+        "reason": "Three of four acceptance criteria are met and verified. The fourth - the broker credential being rotated by the user - is a human action outside the repo and cannot be verified from code. Awaiting confirmation from the user."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "ed8bb30",
         "branch": "main"
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
-        "completed_at": "",
-        "verified_at": "",
+        "started_at": "2026-09-29T00:00:00Z",
+        "completed_at": "2026-09-29T00:00:00Z",
+        "verified_at": "2026-09-29T00:00:00Z",
         "last_updated_at": "2026-09-29T00:00:00Z"
-      }
+      },
+      "blocker": "Awaiting user confirmation that the exposed HiveMQ broker credentials have been rotated. The code side is complete and verified; only the out-of-band credential change remains."
     },
     {
       "id": "TASK-101",
@@ -427,7 +443,7 @@
         "REQ-012"
       ],
       "priority": "P0",
-      "status": "READY",
+      "status": "IN_PROGRESS",
       "dependencies": [
         "TASK-004"
       ],
@@ -461,11 +477,12 @@
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
+        "started_at": "2026-09-29T00:00:00Z",
         "completed_at": "",
         "verified_at": "",
         "last_updated_at": "2026-09-29T00:00:00Z"
-      }
+      },
+      "blocker": ""
     },
     {
       "id": "TASK-406",
@@ -661,7 +678,8 @@
         "completed_at": "",
         "verified_at": "",
         "last_updated_at": "2026-09-29T00:00:00Z"
-      }
+      },
+      "blocker": "One of the two stated preconditions is now met: RISK-002 is retired, PPP produces an IP (TASK-020/TEST-020). The remaining precondition is RISK-003, audio hardware population, which needs a physical board inspection. The decision does not have to wait for it: RISK-003 only affects whether ESP-SR and voice descope, which is an argument about a subset of requirements rather than about the framework as a whole."
     },
     {
       "id": "TASK-105",

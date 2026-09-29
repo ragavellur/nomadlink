@@ -1,6 +1,6 @@
 # ADR-005 — Firmware framework selection
 
-- **Status:** PROPOSED — blocks TASK-101, TASK-103, TASK-104
+- **Status:** PROPOSED — evidence has changed, decision is now ready to take (see *Update 2026-09-29*)
 - **Date:** 2026-09-29
 - **Related:** TASK-019, RISK-002, RISK-006, RISK-007
 
@@ -107,3 +107,61 @@ deliberately kept framework-agnostic where possible so they are not blocked.
 - The Arduino sketches move to `firmware/baseline/` as regression harnesses.
 - The Arduino core 3.3.11 FQBN and the ESP-IDF toolchain must both be
   documented and CI-supported.
+
+---
+
+## Update 2026-09-29 — PPP precondition satisfied, decision can be taken
+
+TASK-020 is done. The first of the two preconditions named in the Recommendation
+is now met, and it is met decisively:
+
+- PPP negotiates end to end on the Airtel SIM. lwIP reaches phase `RUNNING` with
+  `local=100.76.140.112`, `gateway=10.64.64.64`, `mtu=1500`, held stable, and
+  reproduces on a cold boot. See TEST-020 and BUG-006.
+- **RISK-002 is retired.** The premise that PPP was unreachable on this board is
+  dead. It took three fixes, all in Arduino-land: a post-`CONNECT` settle delay,
+  an explicit `tcpip_init()`, and the mandatory `LOCK_TCPIP_CORE()`.
+- The original ESP-IDF "PPP fails" result was almost certainly the **Jio SIM**
+  registration failure (`+CGREG: 0,3`), not a framework defect. It should be
+  re-tested on the Airtel SIM before it is cited as evidence against ESP-IDF.
+
+### What this does and does not change
+
+It removes the strongest argument for ESP-IDF. The case for it was that
+harder-to-port requirements are ESP-IDF-native: `esp32_nat_router` (REQ-004),
+ESP-SR (REQ-018), `esp-mqtt` with TLS (REQ-013, REQ-022), and `esp_codec_dev`
+for I2S (REQ-017). Of those:
+
+| Requirement | Still an ESP-IDF advantage? |
+|---|---|
+| REQ-004 NAT routing | Yes, and now more important — but the PPP prerequisite it needed now works on Arduino, so the *feasibility* risk is gone even if the *convenience* argument stands |
+| REQ-017 audio / I2S | **Unknown** — depends on RISK-003, still unanswered |
+| REQ-018 ESP-SR | **Unknown** — same dependency, and ESP-SR descopes entirely if there is no mic |
+| REQ-013/022 mTLS | Yes, but `esp-mqtt` is not the only path; Arduino has `ArduinoBearSSL`/mbedtls |
+
+So the second precondition, RISK-003, now carries **both** remaining
+framework-selection arguments. It is a single physical inspection of the board
+and it is the cheapest high-leverage action available.
+
+### Revised recommendation
+
+**Option C, decided after RISK-003 is answered.** The shape of the answer barely
+moves with the audio result:
+
+- If I2S mic and amp **are** populated, ESP-IDF is the better product platform
+  (ESP-SR, `esp_codec_dev`, `esp_mqtt` TLS are all real integration cost on
+  Arduino), so Option C: ESP-IDF for product code, Arduino retained as the
+  hardware regression harness.
+- If they are **not** populated, REQ-017/REQ-019 descope, ESP-SR stops being an
+  argument entirely, and the decision collapses to REQ-004 alone. NAT is a
+  solved problem on ESP-IDF via `esp32_nat_router` but genuinely awkward on
+  Arduino, so the answer is still likely ESP-IDF — just with a smaller
+  migration, because the audio and speech work is no longer coming.
+
+Either way the destination is the same, which is why this should not stay
+blocked. What genuinely blocks TASK-101/103/104/108 is not the missing
+information; it is that nobody has written the decision down.
+
+**Proposed:** record Option C as Accepted, with the Arduino baselines retained
+under `firmware/baseline/` as the regression harness, and revisit only if
+RISK-003 descopes the audio work. TASK-019 closes on that basis.

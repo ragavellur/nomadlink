@@ -9,12 +9,22 @@
       "start_date": "2026-09-29",
       "end_date": "2026-10-10",
       "status": "IN_PROGRESS",
-      "committed_task_ids": ["TASK-001", "TASK-002", "TASK-003", "TASK-004", "TASK-019", "TASK-020", "TASK-021", "TASK-022"],
+      "committed_task_ids": [
+        "TASK-001",
+        "TASK-002",
+        "TASK-003",
+        "TASK-004",
+        "TASK-019",
+        "TASK-020",
+        "TASK-021",
+        "TASK-022"
+      ],
       "why_these": [
-        "TASK-004 is first because tracker/tracker.ino contains a hardcoded broker credential. Committing that file before fixing it puts a live secret into git history, which is unrecoverable without a rewrite.",
-        "TASK-019 is the framework decision and it blocks the entire network epic. It cannot be deferred.",
-        "TASK-020/021/022 are the three blocking experiments: PPP on the Airtel SIM (RISK-002), audio hardware population (RISK-003), and GPS cold start inside a recorded benchmark harness (RISK-001 context). Each can descope a major requirement.",
-        "TASK-301, TASK-303 and TASK-405 are deliberately NOT in this sprint even though they are P0, because each depends on TASK-019's outcome or on TASK-001/004 completing first."
+        "TASK-004 is first because tracker/tracker.ino contained a hardcoded broker credential. Committing that file before fixing it would have put a live secret into git history. The code side is now done and verified across full history; only the broker-side rotation remains, which is a human action.",
+        "TASK-019 is the framework decision and it blocks the entire network epic (TASK-101, TASK-103, TASK-104, TASK-108 to TASK-110). Its stated precondition - prove PPP works on this board - is now satisfied, so this is the highest-value task left in the sprint.",
+        "TASK-020 is complete: PPP negotiates to phase RUNNING and yields a real IP. See BUG-006 for the three defects that had to be fixed and LESSONS_LEARNED L-11/L-12 for the diagnosis traps.",
+        "TASK-021 remains blocked on a physical inspection of the board. No amount of code can settle whether the I2S mic and amp are populated.",
+        "TASK-301, TASK-303 and TASK-405 are deliberately NOT in this sprint even though they are P0, because each depends on TASK-019's outcome or on TASK-001/004 completing first. TASK-405 is the natural next sprint: nothing blocks it and it produces the first real end-to-end publish."
       ],
       "out_of_scope": [
         "Any NAT routing code (blocked on TASK-019)",
@@ -22,19 +32,33 @@
         "ESP-SR / voice (blocked on RISK-003)"
       ],
       "exit_criteria": [
-        "Repository initialised and committed with a clean history and no secrets",
-        "Broker credential removed from tracked source and rotation flagged to the user",
-        "ADR-005 framework decision Accepted or Rejected with a written rationale",
-        "RISK-002 answered: does PPP produce an IP on the Airtel SIM, yes or no",
-        "RISK-003 answered: are the I2S mic and DAC physically populated, yes or no",
-        "Validator script demonstrated failing on a seeded invalid state",
-        "HTML dashboard generated from JSON and viewable in a browser"
+        "Repository initialised and committed with a clean history and no secrets  [DONE: TASK-001, TASK-003; secrets scan over full history is clean]",
+        "Broker credential removed from tracked source and rotation flagged to the user  [PARTIAL: code done and verified; rotation is a user action, TASK-004 held at VERIFICATION]",
+        "ADR-005 framework decision Accepted or Rejected with a written rationale  [OPEN - one of its two preconditions is now met, RISK-002 retired]",
+        "RISK-002 PPP on the Airtel SIM produces an IP on the ESP32  [DONE: TEST-020 PASS, phase RUNNING, local=100.76.140.112]",
+        "RISK-003 audio hardware population confirmed  [BLOCKED on physical board inspection by the user, TASK-021]",
+        "RISK-001 GPS cold start benchmarked  [OPEN, TASK-022]"
       ],
       "verification_summary": "Pending sprint execution.",
       "outcome": null,
       "carried_over": [],
-      "defects_found": ["BUG-001", "BUG-002", "BUG-003", "BUG-004"],
-      "risks_reviewed": ["RISK-001", "RISK-002", "RISK-003", "RISK-004", "RISK-005", "RISK-006", "RISK-007", "RISK-008", "RISK-009"]
+      "defects_found": [
+        "BUG-001",
+        "BUG-002",
+        "BUG-003",
+        "BUG-004"
+      ],
+      "risks_reviewed": [
+        "RISK-001",
+        "RISK-002",
+        "RISK-003",
+        "RISK-004",
+        "RISK-005",
+        "RISK-006",
+        "RISK-007",
+        "RISK-008",
+        "RISK-009"
+      ]
     }
   ],
   "sprint-002": {
@@ -43,5 +67,29 @@
     "goal": "Prove a position end to end and land the first real telemetry from the device to the broker, both on the framework chosen in Sprint 1.",
     "status": "PLANNED",
     "note": "Not committed. Depends on Sprint 1 outcomes. If RISK-002 kills PPP, the transport work must use the AT+CIPOPEN path per ADR-004."
+  },
+  "next_sprint_proposal": {
+    "id": "SPRINT-002",
+    "title": "First end-to-end product path",
+    "goal": "Turn the proven hardware capabilities into one working device-to-broker telemetry path, then decide the framework and start the network epic.",
+    "why_now": "Everything in SPRINT-001 that could be settled by software is settled. The remaining sprint-001 items need physical board access. TASK-405 is the highest-value unblocked work because it produces the first real end-to-end publish and retires TEST-403.",
+    "candidate_task_ids": [
+      "TASK-405",
+      "TASK-019",
+      "TASK-402",
+      "TASK-406",
+      "TASK-302",
+      "TASK-103"
+    ],
+    "blocked_on_user": [
+      "Rotate the exposed HiveMQ broker credential (TASK-004)",
+      "Confirm I2S mic and amp population on the board (TASK-021)"
+    ],
+    "out_of_scope": [
+      "ESP-SR / voice work until RISK-003 is answered",
+      "Throughput measurement (TASK-110) until NAT exists"
+    ],
+    "proposed": false,
+    "note": "Not committed to a sprint yet. Listed here so the ordering is visible and reviewable rather than implicit."
   }
 }
