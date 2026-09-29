@@ -2429,7 +2429,7 @@
         "REQ-004"
       ],
       "priority": "P0",
-      "status": "BLOCKED",
+      "status": "DONE",
       "dependencies": [
         "TASK-001"
       ],
@@ -2456,26 +2456,24 @@
         "TEST-020"
       ],
       "verification": {
-        "status": "NOT_VERIFIED",
+        "status": "VERIFIED",
         "evidence": [
           "TEST-020"
         ],
-        "verified_by": "",
-        "verified_at": "",
-        "reason": "Two decisive positives recorded, but the PPP handshake itself was never completed. Not DONE."
+        "verified_by": "ESP32-S3_A7670E_4G_LTE hardware run, Arduino ESP32 core 3.3.11",
+        "verified_at": "2026-09-29T00:00:00Z",
+        "reason": "PPP negotiated end to end on the Airtel SIM. lwIP reached phase RUNNING with local=100.76.140.112, gateway=10.64.64.64, mtu=1500, up=1, and held it stable (217 bytes out / 235 bytes in). A cold-boot run with no USB unplug reproduced it at local=100.77.131.255 (230 bytes out / 273 bytes in). See TEST-020 for the full capture."
       },
       "git": {
         "commit_sha": "",
         "branch": "main"
       },
       "timestamps": {
-        "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
-        "completed_at": "",
-        "verified_at": "",
-        "last_updated_at": "2026-09-29T00:00:00Z"
+        "started_at": "2026-09-29T00:00:00Z",
+        "completed_at": "2026-09-29T00:00:00Z",
+        "verified_at": "2026-09-29T00:00:00Z"
       },
-      "blocker": "BUG-005: the A7670E latched off after the PPP dial attempt and will not restart from software. 5 baud rates x 3 PWRKEY hold lengths plus an 8s deep power-down all produced silence and zero unsolicited bytes. Requires a physical USB power cycle before the LCP/IPCP half of this experiment can be run."
+      "blocker": ""
     },
     {
       "id": "TASK-021",

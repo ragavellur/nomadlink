@@ -78,9 +78,10 @@
       "description": "Primary WAN is Wi-Fi STA, secondary is 4G LTE. On Wi-Fi loss or internet loss, seamlessly route all SoftAP client traffic over LTE via LwIP IP forwarding / NAT. Recovery within 3 seconds of packet loss detection.",
       "priority": "P0",
       "hardware_verified": false,
-      "verification_note": "Not attempted. TASK-020 (2026-09-29) removed the two biggest unknowns: the Airtel SIM does assign a real data IP (100.77.145.7), and the modem accepts a PPP dial over UART (ATD*99# -> CONNECT 115200). So PPP is not obviously unreachable on this board. Still unproven: that LCP/IPCP completes and the ESP32 obtains an IP, which is the actual precondition for NAT forwarding. The experiment was then halted by BUG-005 (modem latched off after the dial).",
-      "status": "NOT_STARTED",
+      "verification_note": "Precondition now proven, feature not yet implemented. TASK-020 (2026-09-29) verified on hardware that PPP negotiates end to end on the Airtel SIM: lwIP reached phase RUNNING with local=100.76.140.112 and gateway=10.64.64.64, held stable, and reproduced on a cold boot at local=100.77.131.255. See TEST-020 and BUG-006. That establishes the IP interface NAT forwarding requires.\n\nStill unverified, and what actually gates this requirement: IP forwarding configuration, the NAT/SoftAP data path itself, dual-WAN failover behaviour, and the 3-second recovery target. Also note the negotiated address is carrier-grade NAT (100.x.x.x), so the LTE leg is outbound-only and not reachable inbound.",
+      "status": "PARTIALLY_VERIFIED",
       "task_ids": [
+        "TASK-020",
         "TASK-108",
         "TASK-109",
         "TASK-110"

@@ -453,26 +453,80 @@ output. The rule is now: **a result line never gets recorded without the raw
 response it was derived from.** Both are in TEST-020's evidence field so the
 verdict can be re-checked later.
 
-## L-11 — PWRKEY is not a reset, and cutting modem power mid-session is dangerous
+## L-11 — PWRKEY is not a reset, and AT silence does not mean the modem is off
 
-`ATD*99#` returned `CONNECT 115200` and the modem entered PPP data mode. The
-A7670E then stopped answering AT, and would not come back:
+`ATD*99#` returned `CONNECT 115200`, the modem entered PPP data mode, and it
+then stopped answering AT. My recovery probe escalated hard and got nothing:
 
 - 5 baud rates (115200 / 9600 / 57600 / 38400 / 230400)
 - PWRKEY held 1200 ms, 2500 ms, 4000 ms
 - an 8-second deep power-down via GPIO21
-- **zero unsolicited bytes** from the module in every case
+- **zero unsolicited bytes** in every case
 
-It needed the USB cable physically removed. Two rules came out of this:
+I concluded the module had latched off, wrote that up as a severity-1 bug
+(BUG-005), and had the user unplug the USB cable. **That diagnosis was wrong.**
+The module was never off. In PPP data mode the A7670E discards AT commands *by
+design*, so the silence was the expected state. A guarded `+++` escape restored
+AT instantly, and once PPP was actually negotiated the same module held a stable
+session without any power cycle at all.
+
+The rule that would have saved all of this:
+
+> **A silent UART is ambiguous. Prove which state you are in before you conclude
+> the hardware is dead.** In data mode AT is discarded, so "no reply to AT" and
+> "no power" look identical from the outside.
 
 1. **A PWRKEY pulse is not a reset.** It is a power *toggle* on an off modem and
-   a hang-up/abort on a live one. A pulse sent blindly can make things worse. My
-   first `ppp_probe` had an unconditional pulse and produced a dead modem on the
-   very first re-run.
-2. **Never remove modem power while it is in data mode.** The module latched
-   off and software could not recover it. If GPIO21 is a power *enable* rather
-   than a true supply cut, a "power cycle" through it is not a power cycle at
-   all, and the module never sees the edge it needs.
+   a hang-up/abort on a live one, so a blind pulse can make things worse. My
+   first `ppp_probe` pulsed unconditionally. Never send one speculatively.
+2. **Try `+++` before concluding anything.** Guarded by silence before and
+   after, it is the cheapest test that distinguishes data mode from dead.
+3. **Escalating probes against an unverified hypothesis produce confident
+   nonsense.** I ran a 2x2 GPIO21 x PWRKEY matrix and reported it as proof that
+   polarity was not inverted. It proved nothing — the modem was in data mode and
+   could not have answered either way.
 
-The open question — which of those it is — is BUG-005, and it needs hardware
-access to settle.
+## L-12 — lwIP PPP on this core needs three things the WiFi stack normally does
+
+Getting PPP to negotiate on the A7670E took three independent fixes, each of
+which produced *exactly the same symptom* — a completely silent link. That is
+why it was so hard to see.
+
+1. **Wait for the modem to enter data mode.** `CONNECT` is printed before the
+   module is listening. lwIP's first Configure-Request went out microseconds
+   later and was swallowed; the module then ignored the retransmissions too.
+   The tell: a hand-built request with identical framing was answered at T+15s,
+   while the byte-identical frame from lwIP at T+0ms was ignored. Content was
+   never the problem — timing was. Fix: 2000 ms settle after `CONNECT`.
+2. **Call `tcpip_init()` yourself.** `pppos_input_tcpip()` posts to the tcpip
+   mbox, which is normally created by the WiFi library. A sketch that never
+   starts WiFi never creates it, and the first inbound byte dies on
+   `assert failed: tcpip_inpkt ... (Invalid mbox)`. Being in the *receive* path
+   makes it look like the link came up and then vanished.
+3. **Hold the core lock.** This core sets `CONFIG_LWIP_TCPIP_CORE_LOCKING=1`, so
+   `pppos_create()` (which calls `netif_add()`) and `ppp_connect()` require
+   `LOCK_TCPIP_CORE()` / `UNLOCK_TCPIP_CORE()` around them.
+
+General lesson: **the Arduino lwIP build is hosted and WiFi-shaped.** Core
+init, the mbox, and the locking discipline are all provided by the network
+stack. Bare-metal PPP clients inherit that contract without the benefits, so
+they must take the responsibilities explicitly. When a link is silent, suspect
+initialisation and timing before suspecting framing or the peer.
+
+Two things that looked like bugs and were not:
+
+- **MRU=0 is not fatal.** lwIP advertised `02 06 00 00 00 00`, which is an
+  invalid MRU, and I was sure the module was rejecting it. It was not: the
+  module answered a hand-built request with MRU=0 just as readily as one with
+  MRU=1500. `ppp_recv_config()` is not required for this modem.
+- **The PPP length field is not required.** RFC 1662 puts a 2-byte length in
+  every frame. Both lwIP and the A7670E omit it, and a frame carrying it was
+  silently dropped. Match the modem, not the RFC.
+
+And one that nearly cost me the whole diagnosis: **a late-arriving reply to an
+earlier command looks like a reply to the current one.** My first raw probe
+called `ppp_close()` and then sent a hand-built frame; the 18 bytes it printed
+were the modem's Terminate-Ack answering the close, not an answer to my frame.
+That fake "REPLY" made a dead link look alive and sent me down the MRU path
+for two runs. **When a probe is destructive, never reuse its output as proof
+about the next action.**

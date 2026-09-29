@@ -37,14 +37,14 @@
     {
       "id": "RISK-002",
       "title": "PPP data path over UART was unproven on this board",
-      "description": "PPP had never produced an IP on this device. The earlier attempt failed on a Jio SIM with +CGREG: 0,3, which is a registration symptom rather than a PPP one. TASK-020 retested on the Airtel SIM and found the data bearer works (IP 100.77.145.7) and that the modem accepts a PPP dial over UART (ATD*99# -> CONNECT 115200).",
+      "description": "PPP had never produced an IP on this device. The earlier attempt failed on a Jio SIM with +CGREG: 0,3, which is a registration symptom rather than a PPP one. TASK-020 retested on the Airtel SIM and has now closed the gap: the data bearer works, the module accepts a PPP dial over UART, and lwIP negotiates LCP/IPCP to phase RUNNING with local=100.76.140.112 and gateway=10.64.64.64, held stable and reproduced on a cold boot.",
       "probability": "Likely",
       "impact": "If LCP/IPCP fails, REQ-004 NAT routing is not achievable and the product descopes or changes modem. Until it is demonstrated, treat NAT routing as unproven rather than assumed.",
       "severity": "S0",
-      "mitigation": "Two of three questions answered. RETIRED: 'PPP is unreachable because esp_modem's A7670 PPP path is USB-only' - the modem does accept a PPP dial over UART, so the serial path is available. RETIRED: 'the SIM/network blocks data' - Airtel assigns a real IP. STILL OPEN: whether LCP/IPCP completes and the ESP32 receives an IP, which is what actually gates REQ-004 NAT routing. Next step is a lwIP PPP client over the UART after the modem is power-cycled (blocked on BUG-005).",
-      "contingency": "If PPP cannot be made to work, the NAT router requirement is not achievable and REQ-004 must be formally descoped or the modem replaced with one that supports a documented USB-NCM or PPP path.",
+      "mitigation": "All three questions are now answered and the risk is closed as verified. RETIRED: 'PPP is unreachable because esp_modem's A7670 PPP path is USB-only' - the module accepts a PPP dial over UART and completes the handshake. RETIRED: 'the SIM/network blocks data' - Airtel assigns a real CGNAT address. RESOLVED: LCP/IPCP completes and the ESP32 receives an IP. This required three fixes recorded in BUG-006 (a post-CONNECT settle delay, tcpip_init() for the receive path, and the mandatory core lock). What remains downstream is REQ-004: NAT routing over the PPP interface, which this test does not prove.",
+      "contingency": "No longer applicable to PPP reachability. RET-002 is closed by TEST-020. The remaining REQ-004 exposure is scope and throughput, not feasibility: the CGNAT address 100.x.x.x is not reachable inbound, and the PRD's 10-15 Mbps target is unmeasured on LTE.",
       "owner": "lead-architect",
-      "status": "MITIGATED_PENDING_VERIFICATION",
+      "status": "RETIRED",
       "related_tasks": [
         "TASK-103",
         "TASK-104",
