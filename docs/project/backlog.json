@@ -2465,7 +2465,7 @@
         "reason": "PPP negotiated end to end on the Airtel SIM. lwIP reached phase RUNNING with local=100.76.140.112, gateway=10.64.64.64, mtu=1500, up=1, and held it stable (217 bytes out / 235 bytes in). A cold-boot run with no USB unplug reproduced it at local=100.77.131.255 (230 bytes out / 273 bytes in). See TEST-020 for the full capture."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "479dcbe",
         "branch": "main"
       },
       "timestamps": {
