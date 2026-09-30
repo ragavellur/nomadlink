@@ -454,7 +454,7 @@
       "dependencies": [
         "TASK-004"
       ],
-      "description": "The socket opens but the MQTT CONNECT is never confirmed. Two known defects: (1) AT+CIPSEND emits a '>' prompt that may not be newline-terminated, so a line-based reader blocks until timeout; (2) broker CONNACK bytes such as 20 02 00 00 are not newline-terminated, so a line parser cannot read them. Replace the line reader with a byte-level reader that recognises the '>' prompt and reads fixed-length CONNACK. Consider migrating to the installed TinyGSM A7672x client, which already uses CIPOPEN correctly.",
+      "description": "Reader fix complete and flashed: byte-level waitForByte('>') for the CIPSEND prompt and a CONNACK state machine parsing the raw 20 02 <sp> <rc> frame, with MARK-CONNECTED now gated on rc==0 (BUG-002 fixed in tracker.ino). BLOCKED at runtime: the physical unit's firmware (A7670M7_V1.11.1) has no usable AT-CIP socket stack - the UART floods with raw PPP LCP frames after AT+CGACT=1,1 and AT+CIPOPEN never answers (the historical +CIPOPEN: 0,10 evidence came from firmware A011B04A7670M7_F). Open decision: transport telemetry over PPP (the path proven working by the NAT router) or over the module's AT HTTP stack, since CIP is not available on this unit.",
       "acceptance_criteria": [
         "Device logs MQTT-CONNECT sent",
         "A CONNACK is received and parsed (expect 0x20 0x02 0x00 0x00)",

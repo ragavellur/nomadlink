@@ -34,14 +34,14 @@
       "title": "tracker MQTT CONNECT never confirmed; CIPSEND prompt and CONNACK unreadable by line parser",
       "severity": "S1",
       "priority": "P0",
-      "status": "OPEN",
+      "status": "FIXED",
       "affected_requirements": [
         "REQ-012"
       ],
       "affected_tasks": [
         "TASK-405"
       ],
-      "environment": "tracker/tracker.ino over LTE, firmware A011B04A7670M7_F",
+      "environment": "tracker/tracker.ino over LTE, physical unit reports A7670M7_V1.11.1 (old evidence was A011B04A7670M7_F)",
       "steps_to_reproduce": [
         "Flash tracker.ino",
         "Observe +CIPOPEN: 0,10 (socket opens successfully)",
@@ -51,11 +51,11 @@
       "expected_result": "MQTT CONNECT sent, CONNACK received, payload visible to a subscriber",
       "actual_result": "No MQTT-CONNECT sent line. Socket opens, then nothing.",
       "root_cause": "Two defects. (1) AT+CIPSEND emits a '>' prompt that is not reliably newline-terminated, so the line-based reader blocks until its deadline expires and gives up before the prompt is seen. (2) Broker CONNACK bytes (20 02 00 00) are not newline-terminated, so a line parser cannot consume them at all.",
-      "fix": null,
+      "fix": "tracker.ino rebuilt with byte-level reader: waitForByte('>') for the CIPSEND prompt and a 4-byte CONNACK state machine (20 02 <sp> <rc>). MARK-CONNECTED now conditional on real CONNACK rc==0.",
       "regression_test": "TEST-403",
-      "verification_status": "NOT_VERIFIED",
-      "commit_sha": "",
-      "notes": "The unconditional MARK-CONNECTED log is itself a reporting defect: it makes a failed connect look successful. Any status derived from it is unreliable."
+      "verification_status": "BLOCKED",
+      "commit_sha": "UNCOMMITTED (tagged worktree)",
+      "notes": "Verification could not be completed on the current module firmware (A7670M7_V1.11.1): after AT+CGACT=1,1 the UART floods with raw PPP LCP frames, so AT+CIPOPEN can neither be issued nor answered. The +CIPOPEN: 0,10 evidence in TEST-403 came from firmware A011B04A7670M7_F. On the physical unit in hand there is no usable AT-CIP socket stack; the working LTE data path is PPP (proven by the NAT router work). Root-cause debt: the reader fix is still required for any future CIP-based path, but TASK-405's transport choice is now firmware-dependent."
     },
     {
       "id": "BUG-003",

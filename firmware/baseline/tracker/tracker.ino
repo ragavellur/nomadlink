@@ -4,15 +4,15 @@
  * On firmware A011B04A7670M7_F, CIPSTART returns ERROR but CIPOPEN works.
  *
  * KNOWN DEFECTS (see docs/project/bugs.json):
- *   BUG-002  The AT+CIPSEND '>' prompt and the broker CONNACK bytes are not
- *            newline-terminated, so the line-based readLine() below cannot
- *            consume either. MQTT-CONNECT sent has never been logged.
- *            MARK-CONNECTED prints unconditionally and is NOT evidence of a
- *            successful connect.
  *   BUG-003  The GNSS wait loop uses an iteration counter, not a millis()
  *            deadline, so it exits after seconds instead of the intended wait.
- * Fixing both is TASK-405 and TASK-301. Do not treat output from this sketch as
- * proof that telemetry publishing works.
+ *            (TASK-301)
+ *   BUG-002  FIXED IN TASK-405: the AT+CIPSEND '>' prompt is a bare byte and the
+ *            broker CONNACK is a fixed 4-byte frame (20 02 00 <rc>) with no
+ *            final newline. The old line-based reader blocked forever on both.
+ *            mqttHandshake() now reads the prompt as a single byte and parses
+ *            the CONNACK as bytes, and reports the real CONNACK return code
+ *            instead of printing MARK-CONNECTED unconditionally.
  *
  * Credentials live in secrets.h, which is gitignored. See secrets.h.example.
  */
@@ -108,6 +108,76 @@ static void raw(const uint8_t *b, int n) {
   ss.flush();
 }
 
+/* The AT+CIPSEND '>' prompt is a bare byte with no trailing newline, and the
+ * broker CONNACK is a raw 4-byte MQTT frame (20 02 <sp> <rc>) that is likewise
+ * not newline-terminated. Both are unreadable by readLine(). These helpers
+ * operate at byte level and filter NMEA noise so nothing reaches the frame
+ * decoder. */
+static int connackState = 0;
+static uint8_t connackRc = 0;
+
+static void connackReset() { connackState = 0; connackRc = 0xFF; }
+
+/* Feeds one byte into a small state machine for the CONNACK frame.
+ * Returns true once the full 4-byte frame (20 02 <sp> <rc>) has been seen,
+ * leaving the return code in connackRc. */
+static bool connackFeed(uint8_t c) {
+  switch (connackState) {
+    case 0:
+      if (c == 0x20) connackState = 1;
+      break;
+    case 1:
+      if (c == 0x02) connackState = 2;
+      else connackState = (c == 0x20) ? 1 : 0;
+      break;
+    case 2:
+      /* session present flag; ignored */
+      connackState = 3;
+      break;
+    case 3:
+      connackRc = c;
+      connackState = 0;
+      return true;
+  }
+  return false;
+}
+
+/* Wait for a single byte within the deadline, discarding NMEA noise. */
+static bool waitForByte(uint8_t want, unsigned long deadline) {
+  while (millis() < deadline) {
+    if (!ss.available()) { yield(); continue; }
+    uint8_t c = (uint8_t)ss.read();
+    if (c == '$') {
+      while (ss.available()) { if ((uint8_t)ss.read() == '\n') break; }
+      noiseLines++;
+      rxlen = 0;
+      continue;
+    }
+    if (c == want) return true;
+  }
+  return false;
+}
+
+/* Read the broker CONNACK. Returns the CONNACK return code (0 = accepted) or
+ * -1 on timeout. Echoed text such as "SEND OK" cannot trip the decoder because
+ * it requires the exact 0x20 0x02 byte pair followed by two payload bytes. */
+static int readConnack(unsigned long deadline) {
+  connackReset();
+  while (millis() < deadline) {
+    if (!ss.available()) { yield(); continue; }
+    uint8_t c = (uint8_t)ss.read();
+    if (c == '$') {
+      while (ss.available()) { if ((uint8_t)ss.read() == '\n') break; }
+      noiseLines++;
+      rxlen = 0;
+      connackReset();
+      continue;
+    }
+    if (connackFeed(c)) return connackRc;
+  }
+  return -1;
+}
+
 static int putRemainingLength(uint8_t *out, int len) {
   int n = 0;
   do {
@@ -145,21 +215,16 @@ static bool mqttHandshake() {
 
   char c[32];
   snprintf(c, sizeof(c), "AT+CIPSEND=%d", total);
-  String r = sendAT(c, 4000, ">");
-  if (r.indexOf(">") < 0) { log("CIPSEND connect", r); return false; }
+  while (ss.available()) ss.read();
+  ss.print(c); ss.print("\r\n");
+  /* The '>' prompt is a bare byte, not a newline-terminated line. */
+  if (!waitForByte('>', millis() + 4000)) { log("CIPSEND connect", String(c) + " no '>' prompt"); return false; }
   raw(p, lenPos + rl);
   raw(p + lenPos + rl, total - lenPos - rl);
 
-  unsigned long t0 = millis();
-  char line[128];
-  while (millis() - t0 < 8000) {
-    if (readLine(line, sizeof(line), millis() + 50, nullptr)) {
-      Serial0.print("<- "); Serial0.println(line); Serial0.flush();
-    }
-  }
-  Serial0.println("MQTT-CONNECT sent");
-  Serial0.flush();
-  return true;
+  int rc = readConnack(millis() + 8000);
+  Serial0.print("CONNACK rc="); Serial0.println(rc); Serial0.flush();
+  return rc == 0;
 }
 
 static bool publish(const char *payload) {
@@ -182,8 +247,9 @@ static bool publish(const char *payload) {
 
   char c[32];
   snprintf(c, sizeof(c), "AT+CIPSEND=%d", total);
-  String r = sendAT(c, 4000, ">");
-  if (r.indexOf(">") < 0) { log("CIPSEND publish", r); return false; }
+  while (ss.available()) ss.read();
+  ss.print(c); ss.print("\r\n");
+  if (!waitForByte('>', millis() + 4000)) { log("CIPSEND publish", String(c) + " no '>' prompt"); return false; }
   raw(p, lenPos + rl);
   raw(p + lenPos + rl, total - lenPos - rl);
 
@@ -253,7 +319,9 @@ void setup() {
   mqttConnected = mqttHandshake();
   Serial0.print("noise discarded="); Serial0.print(noiseLines);
   Serial0.println();
-  Serial0.println("MARK-CONNECTED"); Serial0.flush();
+  Serial0.println(mqttConnected ? "MARK-CONNECTED" : "MARK-CONNECT-FAILED");
+  Serial0.flush();
+  if (!mqttConnected) return;
 
   /* now turn GNSS on and wait for a fix */
   sendAT("AT+CGNSSPWR=1", 5000, "OK");

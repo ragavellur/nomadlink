@@ -4,6 +4,25 @@
   "note": "Append-only. Never rewrite history here; add a new entry. Rule 24: never overwrite historical evidence.",
   "activity": [
     {
+      "timestamp": "2026-09-30T00:00:00Z",
+      "type": "fix",
+      "summary": "tracker byte-level MQTT reader implemented and flashed; CIP socket path found unusable on current module firmware",
+      "requirement_ids": [
+        "REQ-012"
+      ],
+      "task_ids": [
+        "TASK-405"
+      ],
+      "changes": [
+        "tracker.ino: waitForByte('>') replaces line reader for AT+CIPSEND prompt",
+        "tracker.ino: 4-byte CONNACK state machine (20 02 <sp> <rc>) with real rc reporting",
+        "tracker.ino: MARK-CONNECTED now conditional on CONNACK rc==0; MARK-CONNECT-FAILED on failure",
+        "compiled (317460 B / 10%) and flashed to app partition",
+        "runtime: physical unit reports firmware A7670M7_V1.11.1; UART floods with raw PPP LCP frames after AT+CGACT=1,1, so AT+CIPOPEN never answers (CIPOPEN FAILED)",
+        "conclusion: AT-CIP socket stack is not usable on this unit; the working LTE data path is PPP (per NAT router work). BUG-002 reader fix retained for any future CIP path; TEST-403 remains FAIL on current firmware"
+      ]
+    },
+    {
       "timestamp": "2026-09-29T00:00:00Z",
       "type": "milestone",
       "summary": "Repository made public and GitHub Pages enabled for the generated dashboard.",

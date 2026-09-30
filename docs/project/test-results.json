@@ -155,10 +155,10 @@
         "Confirm the independent subscriber receives it"
       ],
       "expected_result": "Device logs MQTT-CONNECT sent, a CONNACK is parsed, and the subscriber receives the payload",
-      "actual_result": "NOT YET ACHIEVED. Socket opens (+CIPOPEN: 0,10) but MQTT-CONNECT sent is never logged. ATT+CIPSEND uses a '>' prompt that is not reliably newline-terminated, and broker CONNACK bytes (20 02 00 00) are not newline-terminated, so the current line-based reader cannot consume either.",
+      "actual_result": "Reader fix flashed (byte-level '>' + CONNACK decoder) but unreachable on the physical unit: current firmware (A7670M7_V1.11.1) floods the UART with raw PPP LCP frames right after AT+CGACT=1,1, so AT+CIPOPEN never gets an answer (CIPOPEN FAILED, ok1=0 already10=0). The documented +CIPOPEN: 0,10 came from older firmware A011B04A7670M7_F. CIP socket path is not usable on this unit; data channel auto-enters PPP mode.",
       "status": "FAIL",
-      "evidence": "tracker serial capture 2026-09-29: +CIPOPEN: 0,10 observed, no MQTT-CONNECT sent line. NOTE: MARK-CONNECTED prints unconditionally and is NOT valid evidence of a successful connect.",
-      "executed_at": "2026-09-29T00:00:00Z"
+      "evidence": "tracker serial capture 2026-09-30: MARK-NET-UP, then PPP LCP byte flood, then 'CIPOPEN rc codes: ok1=0 already10=0' and 'CIPOPEN FAILED'.",
+      "executed_at": "2026-09-30"
     },
     {
       "id": "TEST-104",
