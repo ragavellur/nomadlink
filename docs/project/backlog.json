@@ -2237,7 +2237,7 @@
         "reason": "Implemented and compile-gated. Verified in a browser on 2026-09-30 against a mock /api/status: all 7 tabs switch, one section visible at a time, tab persists across reload, zero external assets, and the degraded paths (never-sampled CSQ, PPP down, client with no address) all render. NOT yet verified on hardware: the device has never served a page, so TEST-801 stays NOT_RUN."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "018401a721e42fa37bd8e51a59ee0a6eb31b58b6",
         "branch": "main"
       },
       "timestamps": {
@@ -2298,7 +2298,7 @@
         "reason": "Implemented and compile-gated. Browser pre-flight on 2026-09-30 with a mock /api/status confirmed every field above renders, that the never-sampled CSQ path reads 'not sampled', and that killing the API produces 'disconnected - retrying' while retaining the last data. NOT hardware evidence; TEST-801 stays NOT_RUN."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "018401a721e42fa37bd8e51a59ee0a6eb31b58b6",
         "branch": "main"
       },
       "timestamps": {
