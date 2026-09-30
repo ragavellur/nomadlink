@@ -67,6 +67,12 @@ tr:last-child td{border-bottom:none}
 .note{background:var(--panel);border:1px solid var(--bd);border-left:3px solid var(--warn);border-radius:6px;padding:11px 13px;margin:9px 0;font-size:13px}
 .note.ok{border-left-color:var(--ok)}.note.err{border-left-color:var(--err)}
 .muted{color:var(--dim)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+.installer{background:var(--panel);border:1px solid var(--bd);border-radius:9px;padding:18px 20px;margin:9px 0;max-width:620px}
+.installer h3{margin:0 0 8px}
+.installer p{color:var(--dim);margin:0 0 14px}
+.installer button{background:var(--acc);color:#07101f;border:0;padding:12px 24px;font-weight:650;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit}
+.installer button:hover{filter:brightness(1.12)}
+.installer .foot{margin-top:16px;color:var(--dim);font-size:11.5px;line-height:1.5}
 footer{padding:20px 24px;color:var(--dim);font-size:11.5px;border-top:1px solid var(--bd);margin-top:30px}
 """
 
@@ -79,7 +85,7 @@ def esc(s) -> str:
     return (str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
 
 
-def page(title: str, active: str, body: str, stamp: str) -> str:
+def page(title: str, active: str, body: str, stamp: str, extra_head: str = "") -> str:
     nav = [("index.html", "Overview"), ("sprint-board.html", "Sprint Board"),
            ("requirements.html", "Requirements"), ("tests.html", "Tests"),
            ("bugs.html", "Defects"), ("risks.html", "Risks"),
@@ -88,6 +94,7 @@ def page(title: str, active: str, body: str, stamp: str) -> str:
     return f"""<!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+{extra_head}
 <title>{esc(title)} — NomadLink</title><style>{CSS}</style></head>
 <body>
 <header>
@@ -155,6 +162,25 @@ def main() -> int:
     b.append(card(crit, "Critical risks"))
     b.append("</div>")
 
+    fw = load(PROJECT / "firmware.json")
+    if fw.get("installer_manifest"):
+        m = fw["installer_manifest"]
+        b.append("<h2>Firmware Installer</h2>")
+        b.append(
+            "<div class='installer'>"
+            f"<h3>{esc(fw.get('product', 'NomadLink One'))}</h3>"
+            f"<p>{esc(fw.get('summary', ''))}</p>"
+            "<esp-web-install-button manifest=\"./manifest_nomadlink_esp32s3.json\">"
+            "<button slot=\"activate\">Connect &amp; Install</button>"
+            "</esp-web-install-button>"
+            f"<div class='foot'>{esc(fw.get('base_note', ''))}<br>"
+            f"Source: <a href=\"{esc(m)}\" target=\"_blank\" rel=\"noopener\">{esc(m)}</a> · "
+            f"Version <span class='mono'>{esc(fw.get('version', '—'))}</span> · "
+            f"Upstream base <span class='mono'>{esc(fw.get('upstream_version', '—'))}</span>"
+            f"<br>{esc(fw.get('prereq_note', ''))}</div>"
+            "</div>"
+        )
+
     if hs:
         b.append("<h2>Honest Status</h2>")
         b.append(f"<div class='note'>{esc(hs.get('summary',''))}</div>")
@@ -184,7 +210,10 @@ def main() -> int:
                  f"<td class='mono'>{esc(', '.join(r.get('test_ids') or []) or '—')}</td>"
                  f"<td class='muted'>{esc((r.get('verification_note') or '—')[:150])}</td></tr>")
     b.append("</table>")
-    NAV["index.html"] = page("Overview", "index.html", "".join(b), stamp)
+    NAV["index.html"] = page(
+        "Overview", "index.html", "".join(b), stamp,
+        extra_head=('<script type="module" '
+                    'src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>'))
 
     # ---------------- Sprint board ----------------
     b = [f"<h2>{esc(cur.get('id'))} — {esc(cur.get('title'))}</h2>"]

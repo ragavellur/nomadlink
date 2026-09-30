@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+
 <title>Releases — NomadLink</title><style>
 :root{--bg:#0f1115;--panel:#171a21;--panel2:#1e222b;--bd:#2a2f3a;--fg:#e6e9ef;--dim:#9aa4b2;
 --acc:#4c9aff;--ok:#3fb950;--warn:#d29922;--err:#f85149;--s0:#f85149;--s1:#ff7b72;--s2:#d29922;--s3:#58a6ff;--s4:#8b949e;}
@@ -48,12 +49,18 @@ tr:last-child td{border-bottom:none}
 .note{background:var(--panel);border:1px solid var(--bd);border-left:3px solid var(--warn);border-radius:6px;padding:11px 13px;margin:9px 0;font-size:13px}
 .note.ok{border-left-color:var(--ok)}.note.err{border-left-color:var(--err)}
 .muted{color:var(--dim)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+.installer{background:var(--panel);border:1px solid var(--bd);border-radius:9px;padding:18px 20px;margin:9px 0;max-width:620px}
+.installer h3{margin:0 0 8px}
+.installer p{color:var(--dim);margin:0 0 14px}
+.installer button{background:var(--acc);color:#07101f;border:0;padding:12px 24px;font-weight:650;border-radius:8px;cursor:pointer;font-size:14px;font-family:inherit}
+.installer button:hover{filter:brightness(1.12)}
+.installer .foot{margin-top:16px;color:var(--dim);font-size:11.5px;line-height:1.5}
 footer{padding:20px 24px;color:var(--dim);font-size:11.5px;border-top:1px solid var(--bd);margin-top:30px}
 </style></head>
 <body>
 <header>
   <h1>NomadLink</h1>
-  <div class="sub">NomadLink One · NomadLink OS · NomadLink Console · NomadLink Cloud — v0.1.0 — generated 2026-09-30 18:35 UTC</div>
+  <div class="sub">NomadLink One · NomadLink OS · NomadLink Console · NomadLink Cloud — v0.1.0 — generated 2026-09-30 19:39 UTC</div>
 </header>
 <nav><a href="index.html" class="">Overview</a><a href="sprint-board.html" class="">Sprint Board</a><a href="requirements.html" class="">Requirements</a><a href="tests.html" class="">Tests</a><a href="bugs.html" class="">Defects</a><a href="risks.html" class="">Risks</a><a href="releases.html" class="on">Releases</a><a href="changelog.html" class="">Activity</a></nav>
 <main><h2>Releases — v0.1.0</h2><div class='note'>No releases yet. Release-readiness checks have not been defined or passed. Rule 37: do not call something a production release until the readiness checks pass.</div><h3>Release readiness checks</h3><table><tr><th>Check</th></tr><tr><td class='muted'>☐ All P0 requirements VERIFIED or formally descoped</td></tr><tr><td class='muted'>☐ Full hardware regression baseline PASS on the release commit</td></tr><tr><td class='muted'>☐ No open S0/S1 defects</td></tr><tr><td class='muted'>☐ Security review complete: no secrets in git, TLS working, admin auth enforced</td></tr><tr><td class='muted'>☐ Validator passes</td></tr><tr><td class='muted'>☐ Release notes written and tag pushed</td></tr></table><div class='note'>No releases.</div></main>

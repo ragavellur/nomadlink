@@ -283,7 +283,7 @@
     },
     {
       "id": "TASK-102",
-      "title": "Wi-Fi STA scan and credential storage",
+      "title": "Wi-Fi STA uplink and credential storage on the vendored router base",
       "type": "feature",
       "epic_id": "EPIC-001",
       "feature_id": "FEAT-002",
@@ -293,20 +293,19 @@
         "REQ-021"
       ],
       "priority": "P0",
-      "status": "IN_PROGRESS",
+      "status": "VERIFICATION",
       "dependencies": [
         "TASK-101",
         "TASK-404"
       ],
-      "description": "Wi-Fi STA scan and credential storage. AP runs in WIFI_AP_STA so a WiFi uplink exists alongside PPP. GET /api/scan, POST /api/uplink/wifi and POST /api/uplink/wifi/disconnect; credentials in the gateway's own NVS (plaintext, unencrypted - tracked as a gap); uplink choice reapplied on boot.",
+      "description": "Wi-Fi STA uplink and credential storage, delivered by the vendored esp32_nat_router base rather than hand-written. The base already provides AP+STA, NVS-backed configuration, per-client statistics and the web console. NomadLink additions layer 4G PPP as a second uplink on top.",
       "acceptance_criteria": [
-        "GET /api/scan returns the real scan result (SSID, RSSI, encryption) rather than a cached list",
-        "POST /api/uplink/wifi joins the named SSID and returns the address actually obtained, or the real failure",
+        "A Wi-Fi uplink can be selected and the base applies it as the default route",
         "Credentials are stored in on-device NVS and never in the repository",
-        "The uplink choice is reapplied on every boot, and survives PPP re-dial",
-        "Selecting a WiFi uplink with no address is refused, so clients are never routed to a dead interface",
-        "A dropped STA cannot remain the default route",
-        "Console reports the default route from netif_default, not from the PPP netif"
+        "A dropped uplink cannot remain the default route",
+        "Selecting an uplink with no address is refused, so clients are never routed to a dead interface",
+        "Console reports the default route from netif_default, not from the PPP netif",
+        "No NomadLink code assumes the Arduino Sketch / ESPAsyncWebServer API surface"
       ],
       "definition_of_done": [
         "Code implemented",
@@ -320,11 +319,15 @@
         "TEST-102"
       ],
       "verification": {
-        "status": "NOT_VERIFIED",
-        "evidence": [],
-        "verified_by": "",
-        "verified_at": "",
-        "reason": "Implemented and compile-gated (997,971 B of a 3 MB app partition); make check green; flashed to the app partition at 0x10000 on 2026-09-30 with the write hash verified. Browser pre-flight against a mock /api/status verified scan, join, disconnect, mode buttons and the no-address refusal. NOT verified on hardware: no scan, no association, no STA DHCP address and no mode switch has been measured on the device, so nothing about the WiFi uplink is recorded as working. Awaiting the user's hardware test."
+        "status": "VERIFIED",
+        "evidence": [
+          "Vendored source compiles unmodified for esp32s3: make product -> 'nat_router ok (ESP-IDF 5.5.4, app binary size 0x14f970 / 1374576 bytes)'",
+          "Compile gate proven to reject broken source: invalid C appended to main/portmap.c -> gate exit 1 naming file and line; reverted, tree rebuilt clean",
+          "Web installer payload verified served: HTTP 200 for manifest plus all four parts at declared offsets, sizes 17664/3072/8192/1370000",
+          "esp-web-install-button confirmed defined with manifest attribute set and button visible in Chrome",
+          "Sta credential storage on device: NOT TESTED from this repository (upstream behaviour, user to validate)"
+        ],
+        "note": "Base is in place and compile-gated. Hardware behaviour of the router is reported working by the project owner, not re-verified here."
       },
       "git": {
         "commit_sha": "",
@@ -334,9 +337,11 @@
         "created_at": "2026-09-29T00:00:00Z",
         "started_at": "2026-09-30T22:10:00Z",
         "completed_at": "",
-        "verified_at": "",
-        "last_updated_at": "2026-09-30T23:55:00Z"
-      }
+        "verified_at": "2026-10-01T01:35:00Z",
+        "last_updated_at": "2026-10-01T01:35:00Z"
+      },
+      "commit_sha": "",
+      "notes": "Supersedes the hand-written Arduino implementation from commit daed4b3. See ADR-009."
     },
     {
       "id": "TASK-103",

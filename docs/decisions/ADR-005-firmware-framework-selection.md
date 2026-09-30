@@ -4,6 +4,20 @@
 - **Date:** 2026-09-29
 - **Related:** TASK-019, RISK-002, RISK-003, RISK-006, RISK-007
 
+## Superseded 2026-10-01 by ADR-009
+
+This ADR is **historical**. The product firmware is now the vendored
+`esp32_nat_router` base built with ESP-IDF 5.5.x — see
+[ADR-009](ADR-009-vendored-nat-router-base.md). ADR-009 also supersedes ADR-007
+and ADR-008.
+
+The reasoning below was correct given the evidence on 2026-09-29: the only proven
+harness at the time was Arduino, and no working reference existed in the project.
+The premise that changed is not the framework's merits — it is that a complete,
+working router for this exact board already existed and was already running on the
+device. Re-implementing it was the error.
+
+
 ## Context
 
 The PRD allows either **ESP-IDF 5.x** or **Arduino-ESP32 3.x** (NFR 8.1). This

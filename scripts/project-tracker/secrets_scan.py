@@ -146,15 +146,33 @@ def is_synthetic_number(value: str) -> bool:
     return steps in ({1}, {-1})           # 9876543210, 1234567890
 
 
+# An NVS key is a *namespace*, not a credential: `#define NVS_KEY_MQTT_PASS "mqtt_pass"`
+# names the entry holding the password; the value lives in NVS at runtime and never
+# appears in source. The vendored esp32_nat_router base trips the KEY/PASSWORD defines
+# on several of these. Exempted narrowly by symbol prefix so that a real credential
+# added alongside it is still caught — do not widen this to the whole tree, which
+# would be a blanket "upstream is trusted" pass.
+NVS_KEY_DEFINE = re.compile(r"^\s*#define\s+NVS_KEY_\w*\s+\"", re.MULTILINE)
+
+# The scanner's own comments quote the patterns they explain, so it matches itself.
+# Skipping itself is not a hole: this file contains no credential by construction.
+SELF = Path(__file__).resolve()
+
+
 def scan_text(label: str, text: str) -> list[str]:
     """Findings for one blob, deduplicated to one per line."""
+    if label.endswith(SELF.name):
+        return []
     hits: dict[int, str] = {}
     for name, rx in PATTERNS:
         for m in rx.finditer(text):
+            line_no = text.count("\n", 0, m.start()) + 1
+            line_start = text.rfind("\n", 0, m.start()) + 1
+            if NVS_KEY_DEFINE.match(text, line_start):
+                continue
             values = [g for g in m.groups() if g is not None]
             if values and all(is_placeholder(v) for v in values):
                 continue
-            line_no = text.count("\n", 0, m.start()) + 1
             shown = m.group(0)
             if len(shown) > 20:
                 shown = shown[:8] + "…" + shown[-6:]

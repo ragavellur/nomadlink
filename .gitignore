@@ -4,6 +4,16 @@ sdkconfig.old
 *.bin
 *.elf
 *.map
+# ESP-IDF build trees (the vendored nat_router base builds in-tree)
+firmware/nat_router/build_*/
+firmware/nat_router/sdkconfig
+firmware/nat_router/sdkconfig.old
+firmware/nat_router/managed_components/
+# IDF fetches managed components; dependencies.lock pins their versions.
+# EXCEPTION to *.bin: the web installer payload must be committed.
+# docs/project/manifest_nomadlink_esp32s3.json references these four by URL, so
+# without this the published page serves a manifest whose parts all 404.
+!docs/project/firmware/*.bin
 node_modules/
 .DS_Store
 .vscode/

@@ -1,0 +1,49 @@
+{
+  "product": "NomadLink One",
+  "version": "0.1.0-base",
+  "status": "BASE ONLY - upstream router unmodified, NomadLink 4G/GNSS/camera features NOT yet present",
+  "summary": "Flash the ESP32-S3 router firmware directly from the browser. No command line or Python installation required.",
+  "chip": "ESP32-S3",
+  "upstream_project": "esp32_nat_router",
+  "upstream_url": "https://github.com/martin-ger/esp32_nat_router",
+  "upstream_version": "2.4.17",
+  "upstream_commit": "2fe7a4c",
+  "upstream_license": "NOT DECLARED - upstream repo has no LICENSE file and GitHub reports license=null. Only the vendored WireGuard submodule carries an explicit BSD-style licence. Redistribution terms must be clarified with the author before any product release.",
+  "vendored_source": "firmware/nat_router",
+  "installer_manifest": "manifest_nomadlink_esp32s3.json",
+  "flash_parts": [
+    {
+      "file": "firmware/bootloader.bin",
+      "offset": 0,
+      "size": 17664
+    },
+    {
+      "file": "firmware/partition-table.bin",
+      "offset": 32768,
+      "size": 3072
+    },
+    {
+      "file": "firmware/ota_data_initial.bin",
+      "offset": 61440,
+      "size": 8192
+    },
+    {
+      "file": "firmware/esp32_nat_router.bin",
+      "offset": 131072,
+      "size": 1370000
+    }
+  ],
+  "base_note": "These binaries are the unmodified upstream esp32_nat_router 2.4.17 ESP32-S3 build, already verified working on this board. The A7670E 4G, GNSS, camera and SD features are not yet in this image.",
+  "prereq_note": "Recommended: Chrome, Edge or Opera. Close all other serial monitors first. Browser flashing writes bootloader, partition table, otadata and app.",
+  "verification": {
+    "web_installer_mount": "PASS - esp-web-install-button custom element defined, manifest attribute set, button visible (Chrome)",
+    "manifest_and_binaries_served": "PASS - HTTP 200 for manifest and all four parts at the declared offsets; sizes 17664 / 3072 / 8192 / 1370000 bytes match the manifest",
+    "actual_flash_to_device": "NOT TESTED - Web Serial needs a real user click and a connected board. Not attempted.",
+    "on_device_runtime": "NOT TESTED from this repository - upstream and the project owner report this image working on this board",
+    "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app binary size 0x14f970 / 1374576 bytes)",
+    "compile_gate_rejects_broken_source": "PASS - invalid C injected into main/portmap.c, gate exited 1 naming file and line; reverted and tree built again",
+    "binary_served_vs_local_build": "DIFFERENT ARTIFACTS - served binary is upstream's prebuilt (1370000 bytes); local rebuild from vendored source is 1374576 bytes. Toolchain drift, functionally the same base. Swap to the local build when NomadLink features land."
+  },
+  "toolchain": "ESP-IDF 5.5.x (installed at ~/esp/esp-idf-5.5.4). The base does NOT build on IDF 6.x: main requires component 'json', which moved to the component manager.",
+  "compile_gate": "make product / make check -> scripts/project-tracker/build-product.sh"
+}

@@ -1,0 +1,8 @@
+dependencies:
+  esp_wireguard:
+    git: https://github.com/martin-ger/esp_wireguard_idf_5.5.x.git
+  espressif/led_strip: '*'
+  espressif/mdns:
+    version: '*'
+    rules:
+      - if: "idf_target != \"esp32c5\""

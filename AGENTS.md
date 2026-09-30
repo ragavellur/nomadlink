@@ -50,7 +50,9 @@ Canonical sources (read these, don't rely on memory):
 - **Verified hardware facts override the PRD** (ADR-002). If the board disagrees
   with the spec, the board wins; record the discrepancy.
 - **Decisions are immutable once Accepted** (`docs/decisions/README.md`).
-  Superseding one creates a *new* ADR; never rewrite history.
+  Superseding one creates a *new* ADR; never rewrite history. ADR-009
+  supersedes ADR-005/007/008: the product is the vendored `esp32_nat_router`
+  base on ESP-IDF, not the Arduino sketch.
 
 ---
 
@@ -213,7 +215,7 @@ make validate   # tracker invariants (validator rules 1-13)
 make secrets    # secrets scan; ARGS=--history to scan all commits
 make render     # regenerate HTML from JSON after any JSON change
 make baseline   # compile every hardware regression sketch
-make product    # compile the product firmware sketch (firmware/nomadlink)
+make product    # compile the product firmware (firmware/nat_router, ESP-IDF 5.5.x)
 make flash SKETCH=<name>   # flash ONE sketch's app partition (0x10000)
 ```
 
@@ -222,12 +224,32 @@ Flash port (CH343): `/dev/cu.wchusbserial58750034621`. Console/observe port
 sketch needs it: `cp firmware/baseline/tracker/secrets.h.example
 firmware/baseline/tracker/secrets.h`.
 
-> **The product sketch is compile-gated too, since 2026-09-30.** `build-baseline.sh`
-> loops `firmware/baseline/*` only, so `firmware/nomadlink` — 1,300 lines of SoftAP
-> + PPP + NAPT + console — previously had **no compile gate at all** and could rot
-> silently. `scripts/project-tracker/build-product.sh` / `make product` closes that
-> hole and is part of `make check`. If you add a second product sketch, add it
-> there rather than assuming it is covered.
+> **The product firmware is `firmware/nat_router`, built with ESP-IDF 5.5.x** (ADR-009,
+> 2026-10-01). It is vendored upstream `esp32_nat_router` 2.4.17 source, unmodified.
+> `build-baseline.sh` still loops `firmware/baseline/*` only, so `make product`
+> / `build-product.sh` is the only thing covering the product tree — it is part of
+> `make check`.
+>
+> **The base must compile unmodified before you touch it.** A build that only
+> succeeds after local edits is a fork, not a base. Provenance and licence are in
+> `firmware/nat_router/README.md`.
+>
+> **It does not build on ESP-IDF 6.x** — `main` requires component `json`, which
+> moved into the component manager, so you get `Failed to resolve component 'json'
+> required by component 'main': unknown name`. That is a toolchain mismatch, not a
+> code fault. Use the 5.5.x install (`~/esp/esp-idf-5.5.4/export.sh`, override with
+> `NAT_ROUTER_IDF_EXPORT`). Do **not** "fix" it by editing the component list.
+> The gate SKIPs cleanly when no 5.5.x install is found, so a missing toolchain
+> cannot pass as a successful build — but a SKIP is not a PASS either.
+>
+> On this machine the IDF installer needs
+> `SSL_CERT_FILE=/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/certifi/cacert.pem`,
+> because the system python cannot verify TLS unaided. `build-product.sh` sets it
+> if unset.
+
+> **The Arduino sketch at `firmware/nomadlink` is historical evidence only.** It is
+> the prototype described in L-16 and is no longer the product. Do not extend it,
+> and do not port its API shapes into the router base.
 
 
 ---
@@ -281,7 +303,7 @@ pattern to `secrets_scan.py`.
   mine." Record the mistake you actually made, not a sanitised version.
 - **Cross-link** new lessons to the `MISTAKES MADE (do not repeat)` and
   `THE THREE CRITICAL THINGS` sections so the whole history stays coherent.
-- Current lessons run `L-08` … `L-14` (see the file). This is the fastest
+- Current lessons run `L-08` … `L-16` (see the file). This is the fastest
   defence against the traps below.
 
 ### The traps, consolidated (do not repeat)
@@ -296,6 +318,15 @@ pattern to `secrets_scan.py`.
   path broken" got written up as settled).
 - Never hand-roll NMEA field indexing (GGA lat/lon are two fields each); use
   TinyGPS++.
+- **Check whether a working implementation already exists before building one**
+  (L-16). A reference implementation means *use it*, not *match its behaviour*.
+  A firmware the user has already flashed and called working is the base.
+- **`git check-ignore` before you commit a binary.** `*.bin` is ignored
+  repo-wide, which silently excluded the web installer's firmware parts; a
+  correct local page is not proof the published page works.
+- **A compile gate must check the exit code, and must be proven to fail.**
+  One reported `ok` while building nothing, because it grepped the log and
+  ran `idf.py` from the wrong directory (L-16).
 - **A compile error names a symbol, not a library.** Before writing a dependency
   incompatibility into a doc or an ADR, grep the library headers *and* the core
   headers to see which one owns the missing symbol. Four times on 2026-09-30 a
@@ -331,7 +362,27 @@ pattern to `secrets_scan.py`.
 
 ---
 
-## 10. Current state (2026-09-30) — read before planning
+## 10. Current state (2026-10-01) — read before planning
+
+- **The product base is `firmware/nat_router`** (vendored `esp32_nat_router`
+  2.4.17, ESP-IDF 5.5.x) per ADR-009. It compiles unmodified and is compile-gated.
+  A browser web installer for the base image is generated at
+  `docs/project/index.html` from `docs/project/firmware.json`, serving
+  `docs/project/firmware/*.bin` via `manifest_nomadlink_esp32s3.json`.
+  The page is labelled **base-only** — the A7670E 4G, GNSS, camera and SD
+  features are **not** in that image. Actual flashing is **NOT TESTED**; Web
+  Serial needs the user's click and a connected board.
+- **RISK-011 is open (S2):** upstream ships **no LICENSE file** and GitHub
+  reports `license=null`. Redistribution rights are unstated. Nothing may be
+  called a production release until this is settled (Rule 37).
+- Two artifacts exist and are **not** interchangeable: the served binary is
+  upstream's prebuilt (1,370,000 B); the local rebuild from vendored source is
+  1,374,576 B. Toolchain drift, same base. The local build replaces the served
+  one when features land.
+- **No NomadLink feature has been added to the base yet.** That is the next task,
+  and the user asked to confirm the base first.
+
+## 10b. Current state (2026-09-30) — read before planning
 
 - **Sprint-001** (Foundation, safety, de-risking; ends 2026-10-10) is
   `IN_PROGRESS`. Open exit criteria: ADR-005 framework decision still only

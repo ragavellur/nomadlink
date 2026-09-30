@@ -705,3 +705,63 @@ looks like.
 **What now catches it:** `make check` builds every sketch, and hardware boot is
 a separate, explicit step that writes a log rather than an impression. The
 lesson is not to let a green build stand in for a boot.
+
+## L-16 — Check whether the thing already exists before rebuilding it (2026-10-01)
+
+A prototype firmware was written for the NomadLink network stack that reproduced,
+feature for feature, `esp32_nat_router` — a project that already existed, was
+maintained, was already running on this board, and was already flashed by the
+project owner. Around 1,300 lines of Arduino were written to recreate
+`ip_napt_enable()` routing, a DHCP server, packet hooks, a web console and
+per-client statistics.
+
+**The wrong turn:** the brief was "make it work like the reference", and that was
+read as "implement the same behaviours". The reference itself was never opened
+before writing the code. By the time it was, the whole stack existed already.
+
+**Why it was worse than wasted effort — it regressed known-good behaviour.**
+ADR-008 had already recorded that `ESPAsyncWebServer` aborts under forwarding
+load on Arduino 3.3.11, because AsyncTCP drives raw lwIP from the wrong thread
+and `LOCK_TCPIP_CORE()` deadlocks instead. Hand-rolling the Arduino equivalent
+walked straight back into that recorded defect, because **the reference is immune
+only because it uses `esp_http_server`**. The immunity was never evidence for
+AsyncTCP — L-15 says exactly that, and the rebuild ignored it. Every hour spent
+writing code was an hour not spent reading a working implementation.
+
+**The general rule.** Before implementing a subsystem, answer three questions in
+this order:
+
+1. **Does a working implementation of this already exist?** Search before
+   designing. If it exists and is running on the target, it is the base, not a
+   spec.
+2. **Is it already on the device?** A firmware the owner has flashed and reports
+   working is the strongest evidence available — stronger than any sketch
+   compiled on a desk.
+3. **What does inheriting it cost?** Vendoring is cheap: `cp -R`, plus a
+   provenance record and a licence check. Re-implementing costs the defect class
+   the original already solved, and the features that were actually being asked
+   for.
+
+"Reference implementation" means *use it*, not *match its behaviour*. Reading
+the reference is the cheapest step in software engineering and it was skipped.
+
+**Two smaller traps in the same commit, both caught only by checking:**
+
+- **`.gitignore` had `*.bin`.** The web installer's four firmware parts were
+  silently excluded from git. The page and its manifest were correct, the
+  manifest resolved, the button mounted — and on the published site **every
+  binary would have 404'd**. A locally served page proves nothing about a
+  published one. *Check the ignore rules for files you intend to commit*, and
+  prefer an assertion (`git check-ignore`) over a visual scan.
+- **A compile gate that reported success without building anything.** It grepped
+  the build log for `error:` instead of checking the exit code, and ran `idf.py`
+  from the repository root, so it failed with `CMakeLists.txt not found` — a
+  string the grep did not match — and printed `ok`. It was fixed, then proven
+  fixed by injecting invalid C and confirming a non-zero exit naming the file and
+  line. That is L-08 applied to a gate: **an untriggered guard is not a guard.**
+
+**What now catches it:** `make product` builds `firmware/nat_router` unmodified
+and exits non-zero on a broken tree; `firmware/nat_router/README.md` records
+upstream, version, commit and licence; ADR-009 states the base must compile
+*before* any feature is layered on, so a base that only builds after local edits
+is visible as a base that has been forked.

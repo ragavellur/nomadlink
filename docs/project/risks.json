@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-29T00:00:00Z",
+  "updated_at": "2026-10-01",
   "scale": {
     "probability": [
       "Rare",
@@ -188,6 +188,25 @@
       "owner": "project owner",
       "review_date": "2026-10-29",
       "related_tasks": [],
+      "related_requirements": [
+        "REQ-022"
+      ]
+    },
+    {
+      "id": "RISK-011",
+      "title": "Vendored esp32_nat_router base has no declared upstream licence",
+      "category": "legal",
+      "severity": "S2",
+      "probability": "MEDIUM",
+      "status": "OPEN",
+      "description": "The product firmware base is vendored upstream source from martin-ger/esp32_nat_router 2.4.17 (commit 2fe7a4c). That repository ships no LICENSE file and the GitHub API reports license=null. Only the bundled WireGuard submodule carries an explicit BSD-style licence. No licence was declared by this project either.",
+      "impact": "Redistributing or selling firmware derived from an unlicensed source has no grant of rights. Every NomadLink feature added on top of this base is downstream of that ambiguity, and the web installer publishes the binary to the public internet.",
+      "mitigation": "Contact the upstream author and obtain an explicit licence in writing before any release (Rule 37 forbids calling anything a production release until this is settled). Treat the currently served binary as internal/review use only. Do not assume a licence from the absence of one.",
+      "owner": "project owner",
+      "review_date": "2026-10-15",
+      "related_tasks": [
+        "TASK-102"
+      ],
       "related_requirements": [
         "REQ-022"
       ]
