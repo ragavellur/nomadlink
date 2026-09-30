@@ -1214,7 +1214,7 @@
       "dependencies": [
         "TASK-301"
       ],
-      "description": "Single position struct with an explicit source (GNSS or LBS) and accuracy. Implements the ADR-006 hierarchy: publish LBS immediately, upgrade to GNSS when quality >= 1 and sats_used > 0.",
+      "description": "Single position struct with an explicit source (GNSS or LBS) and accuracy. Implements the ADR-006 hierarchy: publish LBS immediately, upgrade to GNSS when quality >= 1 and sats_used > 0. STATUS NOTE 2026-09-30: BOTH location sources regressed the same day. LBS returns +CLBS: 10 (close network error) for all modes, proven server-side via identical-byte control + cold modem power-cycle (BUG-009, TEST-302). GNSS dropped to satsUsed=0 / fix=no across four runs while the engine stayed powered and NMEA streamed, an RF/sky-view signature suggesting the patch antenna was dislodged when the unit was moved (BUG-010, TEST-301). RE-VERIFY 2026-10-01: reseat/inspect the GNSS patch antenna, then rerun the unmodified gnss_hold and lbsmatrix controls. Close TASK-302 when both sources return a real fix and CLBS: 0 again, or when the carrier/SIMCom outage is confirmed.",
       "acceptance_criteria": [
         "Implementation satisfies the acceptance criteria of REQ-007",
         "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",

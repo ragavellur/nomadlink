@@ -192,6 +192,64 @@
       "related_bugs": [],
       "created_at": "2026-09-29T00:00:00Z",
       "updated_at": "2026-09-29T00:00:00Z"
+    },
+    {
+      "id": "BUG-009",
+      "title": "AT+CLBS returns ret_code 10 (close network error) for all modes; worked on 2026-09-29, fails from 2026-09-30",
+      "severity": "S1",
+      "status": "OPEN",
+      "component": "Cellular LBS / AT+CLBS (REQ-008, TEST-302)",
+      "detected_by": "TASK-302 / TASK-303 re-verification on 2026-09-30",
+      "affected_requirements": [
+        "REQ-008"
+      ],
+      "affected_tasks": [
+        "TASK-302",
+        "TASK-303"
+      ],
+      "description": "On 2026-09-29 the committed lbsmatrix control flow (SIMEI -> CNMP=38 -> CGDCONT -> CGATT -> CGACT=1,1 -> AT+CLBS=1,1) returned +CLBS: 0,18.481703,73.897415,550, corroborated by the GNSS fix. On 2026-09-30 the byte-for-byte identical control, including after a TRUE cold modem power-cycle (PWRKEY hold off, then on), returned +CLBS: 10 in every mode tested: mode1-cid1, mode9-cid1, mode2-cid1, default-CID, and mode4. Same device, same SIM (Airtel 40490/7), same location, same firmware.",
+      "root_cause": "LIKELY SERVER-SIDE, NOT FIRMWARE. The modem data plane is proven healthy at the time of the failure: NETOPEN returns OK, IPADDR yields a valid address (100.x), CIPOPEN TCP to mqtt.easyiothings.com:80 succeeds, and CIPOPEN TCP to lbs-simcom.com:3002 (the SIMCom LBS host) succeeds. Only the AT+CLBS application transaction is closed. Per the official A76XX LBS ret_code table, code 10 = close network error, i.e. the LBS server's connection to the fixed SIMCom LBS service is refused/closed on the service side; no AT+CLBSCFG exists on A76XX to override the server. Working hypothesis: the SIMCom LBS service stopped serving this IMEI/carrier between 09-29 and 09-30. A contributing observation: an active IMS PDP context 8 is always present and was disturbed by earlier context-deletion experiments, but a cold power-cycle did not restore LBS, so it is not the cause.",
+      "fix": "None applied. Firmware is already correct per the app note (SIMEI populated, valid bearer on cid 1, correct 1,1 syntax). Ruled out firmware/probe/CFUN/context-churn/state-wedge causes by identical-byte control + cold power-cycle. RE-VERIFY PLAN (2026-10-01): rerun the UNMODIFIED lbsmatrix control. If it returns +CLBS: 0 again, it is confirmed a server-side outage and no code change is required. If it still returns 10, escalate to the carrier/SIMCom with this unit's IMEI (redacted here per Rule 27; read it from the local test logs). Interim: the GNSS position path is unaffected (TEST-301 PASS 2026-09-30) so primary location is covered per ADR-006; only the LBS fallback is unavailable.",
+      "regression_test": "TEST-302",
+      "verification_status": "NOT_VERIFIED",
+      "commit_sha": "",
+      "related_tasks": [
+        "TASK-302",
+        "TASK-303"
+      ],
+      "related_bugs": [],
+      "created_at": "2026-09-30T20:30:00Z",
+      "updated_at": "2026-09-30T20:30:00Z"
+    },
+    {
+      "id": "BUG-010",
+      "title": "GNSS sees 0 satellites from 2026-09-30 18:37 onward, after a confirmed fix at 17:46 the same day",
+      "severity": "S1",
+      "status": "OPEN",
+      "component": "GNSS engine / RF path (REQ-007, TEST-301)",
+      "detected_by": "TASK-302 re-verification session on 2026-09-30",
+      "affected_requirements": [
+        "REQ-007"
+      ],
+      "affected_tasks": [
+        "TASK-301",
+        "TASK-302"
+      ],
+      "description": "At 2026-09-30 17:46 local the gnss_hold control locked with 4 satellites, hdop 7.3, fix 18.480816, 73.898640 (TEST-301). From 18:37 local the same committed control, unmodified, returned satsUsed=0 and fix=no for the entire 500 s window across four consecutive runs (gnss-hold6, 7, 8, 8b). NMEA sentences kept streaming throughout (counter climbing 249 to 6009) and AT+CGNSSPWR=1 / AT+CGNSSTST=1 both returned OK, so the receiver is powered and the UART/NMEA path is healthy; the receiver simply has no satellites in view. position_service runs in the same window independently report 'searching satsInView=0 hdop=99.99'.",
+      "root_cause": "RF / sky-view, not firmware. The engine is powered, NMEA is streaming, and C/N0 tracking never starts, which rules out a dead engine, a wrong serial mode and the BUG-003 deadline bug. The distinguishing signal is that this began at a specific time in the session and the unit is a portable device that was moved between runs (per session history the unit was carried outside the window for the GNSS test). Candidate causes: (a) the 4G/GNSS patch antenna connector was dislodged when the unit was moved, (b) the unit is now positioned where the sky view is fully obstructed, (c) antenna damaged. Note the same session also lost LBS (BUG-009) in the same window, which is a separate service-side fault and not caused by this.",
+      "fix": "None applied. RE-VERIFY PLAN (2026-10-01): (1) physically reseat and visually inspect the GNSS/4G patch antenna connector and coax at the board, (2) confirm the antenna is the active GNSS element and not left shielded or stowed, (3) rerun the unmodified gnss_hold control with the unit at the 17:46 position and clear sky. If satellites return, this is confirmed placement/antenna and requires no code change. If satsUsed stays 0 with good sky, investigate the RF path and the GNSS antenna element itself. Run the LBS re-verify (BUG-009) in the same session so both location sources are checked together.",
+      "regression_test": "TEST-301",
+      "verification_status": "NOT_VERIFIED",
+      "commit_sha": "",
+      "related_tasks": [
+        "TASK-301",
+        "TASK-302"
+      ],
+      "related_bugs": [
+        "BUG-009"
+      ],
+      "created_at": "2026-09-30T20:45:00Z",
+      "updated_at": "2026-09-30T20:45:00Z"
     }
   ]
 }

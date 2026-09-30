@@ -4,6 +4,30 @@
   "note": "Append-only. Never rewrite history here; add a new entry. Rule 24: never overwrite historical evidence.",
   "activity": [
     {
+      "timestamp": "2026-09-30T20:35:00Z",
+      "type": "regression",
+      "summary": "TASK-302 re-verify: BOTH location sources regressed on 2026-09-30 - AT+CLBS returns ret_code 10 (proven server-side) and GNSS dropped to 0 satellites (RF/antenna). BUG-009 and BUG-010 opened, RE-VERIFY set 2026-10-01.",
+      "requirement_ids": [
+        "REQ-007",
+        "REQ-008"
+      ],
+      "task_ids": [
+        "TASK-301",
+        "TASK-302",
+        "TASK-303"
+      ],
+      "changes": [
+        "LBS symptom: the UNMODIFIED committed lbsmatrix control, byte-for-byte the 09-29 flow, returned +CLBS: 10 today (was +CLBS: 0,18.481703,73.897415,550 on 09-29); same device, SIM, location",
+        "LBS isolation: lbs_debug with a TRUE cold modem power-cycle (PWRKEY hold off, then on) replayed the identical 09-29 sequence -> still +CLBS: 10 for mode1/9/2; rules out state-wedge from prior CFUN/context churn",
+        "LBS isolation: modem data plane proven healthy at failure time (NETOPEN OK, +IPADDR valid, CIPOPEN to mqtt.easyiothings.com:80 OK, CIPOPEN to lbs-simcom.com:3002 OK); only the CLBS application transaction closes",
+        "LBS root cause: official A76XX LBS ret_code table - code 10 = close network error at the LBS service, not the data plane; A76XX has no AT+CLBSCFG server override, so the failing boundary is the carrier/SIMCom LBS service for this unit's IMEI (redacted here per Rule 27; read it from the local test logs)",
+        "GNSS symptom: after a confirmed fix at 17:46 local (LOCK t+130s, 4 sats, hdop 7.3), the unmodified gnss_hold control returned satsUsed=0 / fix=no for the full 500 s across four runs from 18:37 local, while NMEA kept streaming (249->6009 sentences) and the engine stayed powered",
+        "GNSS root cause: powered engine + streaming NMEA + zero C/N0 is an RF/sky-view signature, not firmware; suspect the patch antenna was dislodged when the unit was moved during the session",
+        "docs: TEST-302 PASS -> FAIL and TEST-301 evidence extended with the 0-sat regression; REQ-007 and REQ-008 keep their VERIFIED status with dated REGRESSION NOTEs; BUG-009 (LBS) and BUG-010 (GNSS) OPEN with a combined 2026-10-01 re-verify plan",
+        "firmware landed (uncommitted until now): position_service.ino (ADR-006 LBS-first, GNSS upgrade), lbs_debug.ino (LBS isolation harness with cold power-cycle), tracker.ino (TASK-405 MQTT frame-builder fix, TASK-301 CGNSSPORTSWITCH 0,1)"
+      ]
+    },
+    {
       "timestamp": "2026-09-30T12:26:12Z",
       "type": "security",
       "summary": "TASK-004 closed: hardcoded HiveMQ credentials fully removed, scan passes tree + history, rotation confirmed",

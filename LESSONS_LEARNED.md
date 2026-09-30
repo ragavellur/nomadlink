@@ -537,3 +537,43 @@ were the modem's Terminate-Ack answering the close, not an answer to my frame.
 That fake "REPLY" made a dead link look alive and sent me down the MRU path
 for two runs. **When a probe is destructive, never reuse its output as proof
 about the next action.**
+
+## L-13 — When something that worked stops working, reproduce the old flow
+   byte-for-byte before touching anything (2026-09-30)
+
+`AT+CLBS=1,1` returned a real position on 09-29 and `+CLBS: 10` (close network
+error) on 09-30, same device, same SIM, same place. The instinct is to start
+changing the firmware. That instinct was wrong, and the way to kill it is
+mechanical: **replay the exact command sequence that previously succeeded,
+unchanged, on the committed control sketch.**
+
+The committed `lbsmatrix` sketch *is* that control. It failed identically on
+its own, before any experimental variant was run. That single result moved the
+question from "which of my changes broke it?" to "what changed outside the
+firmware?", which is the only question worth asking.
+
+Two follow-ups that closed it:
+
+- **A true cold power-cycle is not an ESP32 reset.** The modem had been up all
+  session being churned with `CFUN` cycles and PDP-context deletes. The only
+  way to rule out a wedged long-lived session is to actually power the module
+  off (long PWRKEY hold) and back on. A USB reset leaves the modem running.
+- **Prove the data plane separately from the application.** `NETOPEN` +
+  `CIPOPEN` to a public host — and specifically to `lbs-simcom.com:3002`, the
+  LBS server itself — all returned OK, while only the `AT+CLBS` transaction
+  closed. A76XX has no `AT+CLBSCFG`, so the server address cannot be moved in
+  firmware. The failing boundary was the LBS service, on their side.
+
+The same day GNSS went to zero satellites. The signature mattered more than the
+number: **the engine was powered, NMEA kept streaming, and C/N0 never started.**
+That is RF or sky-view, never a dead engine or a parser bug. A PASS earlier in
+the day and a total failure later is not a paradox, it is a moved device.
+
+General rule: **an intermittent external-service failure is proven by the
+unchanged control, not by the newest experiment.** If the control that used to
+pass still passes, the regression is yours. If it now fails, the regression is
+the world's, and no amount of firmware work will find it. Also: when two
+independent subsystems fail in the same window, that is a strong hint they share
+a cause — here, a portable unit that was moved and a carrier service that went
+down. Check the physical setup before the build.
+

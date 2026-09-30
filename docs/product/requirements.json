@@ -137,7 +137,7 @@
       "description": "Communicate with A7670E GNSS via AT commands. Parse raw NMEA to extract latitude, longitude, altitude, speed, fix status, satellite count.",
       "priority": "P0",
       "hardware_verified": true,
-      "verification_note": "VERIFIED. Cold-start fix 18.480816, 73.898640 (LOCK t+130s, 4 sats, hdop 7.3, 2026-09-30). Prior 2026-09-29: 18.480776, 73.897998 in 69 s, 17 GPS + 10 GLONASS, C/N0 up to 73. Requires PWRKEY GPIO42 power-on pulse and CGNSSPORTSWITCH=0,1 (1,1 errors on rev A7670M7_V1.11.1). See ADR-002, ADR-006 and LESSONS_LEARNED.md.",
+      "verification_note": "VERIFIED. Cold-start fix 18.480816, 73.898640 (LOCK t+130s, 4 sats, hdop 7.3, 2026-09-30 17:46 local). Prior 2026-09-29: 18.480776, 73.897998 in 69 s, 17 GPS + 10 GLONASS, C/N0 up to 73. Requires PWRKEY GPIO42 power-on pulse and CGNSSPORTSWITCH=0,1 (1,1 errors on rev A7670M7_V1.11.1). REGRESSION NOTE 2026-09-30 18:37 local: the unmodified gnss_hold control then reported satsUsed=0 / fix=no for the full 500 s across four consecutive runs while NMEA kept streaming and the engine stayed powered, i.e. an RF/sky-view signature rather than a firmware fault; suspect the patch antenna was dislodged when the unit was moved. RE-VERIFY 2026-10-01 after a physical antenna reseat (see BUG-010). See ADR-002, ADR-006 and LESSONS_LEARNED.md.",
       "status": "VERIFIED",
       "spec_defect": "PRD FR-3.1 names AT+CGNSINF, which does not exist on this module. AT+CGPSINFO is valid. Corrected per ADR-002.",
       "task_ids": [
@@ -157,7 +157,7 @@
       "description": "When no GNSS fix is available, obtain an approximate position from the cellular network using AT+CLBS=1,1, reporting longitude/latitude and an accuracy radius in metres.",
       "priority": "P0",
       "hardware_verified": true,
-      "verification_note": "VERIFIED. AT+CLBS=1,1 returned +CLBS: 0,18.481703,73.897415,550. Independently corroborated by the GPS fix at 18.480776, 73.897998 (separation well within the reported 550 m accuracy). Requires the 4G patch antenna attached (CSQ 16 -> 26) and AT+SIMEI populated from AT+CGSN. NOTE: this requirement is not in the PRD; it was added after hardware testing showed a real, working fallback exists.",
+      "verification_note": "VERIFIED 2026-09-29. AT+CLBS=1,1 returned +CLBS: 0,18.481703,73.897415,550. Independently corroborated by the GPS fix at 18.480776, 73.897998 (separation well within the reported 550 m accuracy). Requires the 4G patch antenna attached (CSQ 16 -> 26) and AT+SIMEI populated from AT+CGSN. REGRESSION NOTE 2026-09-30: the identical lbsmatrix control flow, including after a true cold modem power-cycle, returned +CLBS: 10 in every mode while the modem data plane stayed healthy (NETOPEN OK, CIPOPEN to mqtt.easyiothings.com:80 and lbs-simcom.com:3002 OK). ret_code 10 is an LBS-application close on the carrier/SIMCom LBS service side, not a firmware or data-plane fault. RE-VERIFY 2026-10-01 by rerunning the unmodified lbsmatrix control; a return to +CLBS: 0 confirms a server-side service outage. NOTE: this requirement is not in the PRD; it was added after hardware testing showed a real, working fallback exists.",
       "status": "VERIFIED",
       "task_ids": [
         "TASK-303"

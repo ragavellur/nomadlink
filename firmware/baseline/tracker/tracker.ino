@@ -208,7 +208,6 @@ static bool mqttHandshake() {
   int n = 0;
   p[n++] = 0x10;                       /* CONNECT */
   int lenPos = n++;
-  n += 2;                              /* reserve remaining length */
   n = putString(p, n, "MQTT");
   p[n++] = 0x04;                       /* 3.1.1 */
   p[n++] = 0xC2;                       /* user | pass | clean session */
@@ -216,7 +215,14 @@ static bool mqttHandshake() {
   n = putString(p, n, CLIENT_ID);
   n = putString(p, n, MQTT_USER);
   n = putString(p, n, MQTT_PASS);
-  int rl = putRemainingLength(p + lenPos, n - lenPos - 2);
+  /* TASK-405 fix: put the body right after the single remaining-length byte,
+   * then grow it if the length needs more than one byte (memmove). */
+  int rl = putRemainingLength(p + lenPos, n - lenPos - 1);
+  if (rl > 1) {
+    int shift = rl - 1;
+    for (int i = n - 1; i >= lenPos + 1; i--) p[i + shift] = p[i];
+    n += shift;
+  }
   int total = n - 1 + rl;
 
   char c[32];
@@ -243,12 +249,16 @@ static bool publish(const char *payload) {
   int n = 0;
   p[n++] = 0x30;                       /* PUBLISH QoS 0 */
   int lenPos = n++;
-  n += 2;
   n = putString(p, n, MQTT_TOPIC);
   int pl = strlen(payload);
   memcpy(p + n, payload, pl);
   n += pl;
-  int rl = putRemainingLength(p + lenPos, n - lenPos - 2);
+  int rl = putRemainingLength(p + lenPos, n - lenPos - 1);
+  if (rl > 1) {
+    int shift = rl - 1;
+    for (int i = n - 1; i >= lenPos + 1; i--) p[i + shift] = p[i];
+    n += shift;
+  }
   int total = n - 1 + rl;
 
   char c[32];
@@ -331,7 +341,7 @@ void setup() {
 
   /* now turn GNSS on and wait for a fix */
   sendAT("AT+CGNSSPWR=1", 5000, "OK");
-  sendAT("AT+CGNSSPORTSWITCH=1,1", 5000, "OK");
+  sendAT("AT+CGNSSPORTSWITCH=0,1", 5000, "OK");
   sendAT("AT+CGNSSTST=1", 5000, "OK");
   Serial0.println("MARK-STREAMING"); Serial0.flush();
 

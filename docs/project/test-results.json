@@ -107,9 +107,9 @@
         "Wait on a millis() deadline"
       ],
       "expected_result": "Fix within a few minutes with quality 1 and sats_used > 0",
-      "actual_result": "Fix at LOCK t+130s sats=4 hdop=7.3; 18.480816, 73.898640, ALT 550.7m (2026-09-30). Prior 2026-09-29: 18.480776, 73.897998 in 69 s, 17 GPS + 10 GLONASS, C/N0 up to 73.",
+      "actual_result": "Fix at LOCK t+130s sats=4 hdop=7.3; 18.480816, 73.898640, ALT 550.7m (2026-09-30 17:46 local). Prior 2026-09-29: 18.480776, 73.897998 in 69 s, 17 GPS + 10 GLONASS, C/N0 up to 73. REGRESSION 2026-09-30 18:37-18:49 local: gnss_hold control returned satsUsed=0, fix=no for the full 500 s window across runs 6, 7, 8 and 8b, while NMEA kept streaming normally (sentence counter climbing 249 to 6009) and AT+CGNSSPWR=1/AT+CGNSSTST=1 returned OK. The receiver is powered and the UART path is healthy but ZERO satellites are in view, which is an RF/sky-view signature (antenna or placement), not a firmware or engine fault. See BUG-010.",
       "status": "PASS",
-      "evidence": "gnss_hold serial captures 2026-09-29 (69s) and 2026-09-30 (/tmp/gnss-hold5.log); GGA quality 1 confirmed",
+      "evidence": "gnss_hold serial captures 2026-09-29 (69s) and 2026-09-30 17:46 (/tmp/gnss-hold5.log, LOCK t+130s sats=4); GGA quality 1 confirmed. 0-sat regression same day 18:37-18:49: /tmp/gnss-hold6.log, /tmp/gnss-hold7.log, /tmp/gnss-hold8.log, /tmp/gnss-hold8b.log (mode:DIO clock div:1, GNSS-ENGINE-NO-READY, NMEA streaming, satsUsed=0 fix=no to t+500s); also /tmp/position7.log and /tmp/position10.log (searching satsInView=0 hdop=99.99).",
       "executed_at": "2026-09-30T12:17:03Z"
     },
     {
@@ -131,10 +131,10 @@
         "Compare the result against the GNSS fix"
       ],
       "expected_result": "+CLBS: 0,<lon>,<lat>,<accuracy> with the position within the reported accuracy radius of the GNSS fix",
-      "actual_result": "+CLBS: 0,18.481703,73.897415,550. Separation from the GNSS fix 18.480776, 73.897998 is well inside the 550 m reported radius. Two independent sources corroborate.",
-      "status": "PASS",
-      "evidence": "lbsmatrix serial capture 2026-09-29, markers MARK-TRY-mode1-cid1 and VERDICT mode1-cid1 => SUCCESS",
-      "executed_at": "2026-09-29T00:00:00Z"
+      "actual_result": "09-29: +CLBS: 0,18.481703,73.897415,550 (PASS, corroborated by GNSS 18.480776, 73.897998). 09-30: +CLBS: 10 in all tested modes (mode1-cid1, mode9-cid1, mode2-cid1, default-CID, mode4) with true cold modem power-cycle and identical 09-29 byte sequence. Modem data plane healthy (NETOPEN OK, IPADDR valid, CIPOPEN to mqtt.easyiothings.com:80 and lbs-simcom.com:3002 OK) — ret_code 10 = LBS application close (carrier/SIMCom LBS service side). RE-VERIFY 2026-10-01: rerun the unmodified lbsmatrix control; a return to +CLBS: 0 confirms a server-side outage rather than a firmware regression.",
+      "status": "FAIL",
+      "evidence": "lbsmatrix serial capture 2026-09-29: MARK-TRY-mode1-cid1 VERDICT => SUCCESS (+CLBS: 0). lbsmatrix 2026-09-30 (/tmp/lbsmatrix-now.log): all modes return +CLBS: 10. lbs_debug 09-30 with cold modem power-cycle (/tmp/lbs-cold.log): PWRKEY OFF/ON, byte-for-byte 09-29 flow -> +CLBS: 10 for mode1/9/2. Socket probe (/tmp/lbs-debug8/9.log): CIPOPEN to lbs-simcom.com:3002 OK, CIPOPEN to mqtt.easyiothings.com:80 OK, but AT+CLBS returns 10 even with NETOPEN active. See /tmp/lbs-cold.log, /tmp/lbsmatrix-now.log, /tmp/lbs-debug9.log.",
+      "executed_at": "2026-09-30T20:23:00Z"
     },
     {
       "id": "TEST-403",
