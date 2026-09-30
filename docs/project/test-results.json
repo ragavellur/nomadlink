@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-30T12:17:03Z",
+  "updated_at": "2026-09-30T12:26:07Z",
   "note": "Every test records what was expected, what was observed, and the evidence. A PASS without evidence is rejected by validate.py.",
   "tests": [
     {
@@ -60,10 +60,10 @@
         "Confirm no match in any commit"
       ],
       "expected_result": "Zero matches across all commits and the working tree",
-      "actual_result": "",
-      "status": "NOT_RUN",
-      "evidence": "",
-      "executed_at": ""
+      "actual_result": "zero matches across working tree and full git history (66 committable files)",
+      "status": "PASS",
+      "evidence": "python3 scripts/project-tracker/secrets_scan.py --history -> PASS",
+      "executed_at": "2026-09-30T12:26:07Z"
     },
     {
       "id": "TEST-103",

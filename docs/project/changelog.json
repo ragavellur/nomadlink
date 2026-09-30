@@ -1,8 +1,26 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-30T12:17:38Z",
+  "updated_at": "2026-09-30T12:26:12Z",
   "note": "Append-only. Never rewrite history here; add a new entry. Rule 24: never overwrite historical evidence.",
   "activity": [
+    {
+      "timestamp": "2026-09-30T12:26:12Z",
+      "type": "security",
+      "summary": "TASK-004 closed: hardcoded HiveMQ credentials fully removed, scan passes tree + history, rotation confirmed",
+      "requirement_ids": [
+        "REQ-021",
+        "REQ-022"
+      ],
+      "task_ids": [
+        "TASK-004"
+      ],
+      "changes": [
+        "secrets_scan.py --history PASS: no credential patterns in committable tree nor full git history (66 files)",
+        "tracker.ino loads MQTT creds from gitignored secrets.h; secrets.h.example tracked as template",
+        "TEST-003 marked PASS with scan evidence",
+        "TASK-004 DONE/VERIFIED; user confirmed broker credential rotated out-of-band"
+      ]
+    },
     {
       "timestamp": "2026-09-30T12:17:38Z",
       "type": "verified",

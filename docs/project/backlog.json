@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-30T12:17:03Z",
+  "updated_at": "2026-09-30T12:26:07Z",
   "legend": {
     "states": [
       "BACKLOG",
@@ -181,7 +181,7 @@
         "REQ-022"
       ],
       "priority": "P0",
-      "status": "VERIFICATION",
+      "status": "DONE",
       "dependencies": [
         "TASK-001"
       ],
@@ -201,15 +201,16 @@
         "TEST-003"
       ],
       "verification": {
-        "status": "NOT_VERIFIED",
+        "status": "VERIFIED",
         "evidence": [
-          "secrets_scan.py --history -> PASS (tree + full history)",
-          "tracker.ino loads secrets from gitignored secrets.h",
-          "secrets.h.example tracked as the template"
+          "secrets_scan.py --history -> PASS (committable tree + full git history, 66 files)",
+          "tracker.ino loads MQTT creds from gitignored secrets.h",
+          "secrets.h.example tracked as template only",
+          "user confirmed broker credential rotated out-of-band"
         ],
-        "verified_by": "repo inspection",
-        "verified_at": "",
-        "reason": "Three of four acceptance criteria are met and verified. The fourth - the broker credential being rotated by the user - is a human action outside the repo and cannot be verified from code. Awaiting confirmation from the user."
+        "verified_by": "repo inspection + user confirmation",
+        "verified_at": "2026-09-30T12:26:07Z",
+        "reason": "All four acceptance criteria met: no literal in tracked files, git grep clean, creds in gitignored secrets.h, and the user confirmed rotation."
       },
       "git": {
         "commit_sha": "ed8bb30",
@@ -219,10 +220,10 @@
         "created_at": "2026-09-29T00:00:00Z",
         "started_at": "2026-09-29T00:00:00Z",
         "completed_at": "2026-09-29T00:00:00Z",
-        "verified_at": "2026-09-29T00:00:00Z",
-        "last_updated_at": "2026-09-29T00:00:00Z"
+        "verified_at": "2026-09-30T12:26:07Z",
+        "last_updated_at": "2026-09-30T12:26:07Z"
       },
-      "blocker": "Awaiting user confirmation that the exposed HiveMQ broker credentials have been rotated. The code side is complete and verified; only the out-of-band credential change remains."
+      "blocker": ""
     },
     {
       "id": "TASK-101",
