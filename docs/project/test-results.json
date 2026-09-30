@@ -645,12 +645,12 @@
         "Join the AP and open http://192.168.4.1"
       ],
       "expected_result": "AP broadcasts SSID 'NomadLink'; router console at 192.168.4.1 loads",
-      "actual_result": "AP broadcasts SSID 'NomadLink'. Confirmed by the project owner on hardware after flashing from the published web installer.",
+      "actual_result": "AP broadcasts SSID 'NomadLink'. The owner additionally confirmed the device delivers working internet access: 'internet works using NomadLink'. This was observed after a WiFi uplink was configured via the base's own /setup or /config page.",
       "status": "PASS",
-      "evidence": "User confirmation in session, 2026-10-01: 'now NomadLink is working'. This is an independent observer's report, not a self-asserted marker. Corroborating repository-side evidence: published page returns HTTP 200 and contains 'Connect & Install' (curl, 20479 bytes); manifest 200; all four firmware parts 200 at the declared offsets (17664 / 3072 / 8192 / 1374544 bytes). Not claimed: forward throughput, DHCP lease, client internet access, or any 4G/GNSS/camera capability - none is in this image.",
+      "evidence": "User confirmation in session, 2026-10-01: 'now NomadLink is working' and 'internet works using NomadLink'. Independent observer, not a self-asserted marker. Corroborating repository-side evidence: published page HTTP 200 containing 'Connect & Install' (20479 B); manifest 200; all four firmware parts 200 at the declared offsets (17664 / 3072 / 8192 / 1374544 B). PROVEN BY THIS TEST: AP boots and broadcasts 'NomadLink'; a client behind the AP reaches the internet, so SoftAP + DHCP lease + NAPT + forwarding + STA uplink all work; the delivered payload reaches the device. NOT MEASURED: forward throughput in Mbps, client count under load, or any 4G/GNSS/camera/SD capability - none is in this image. Also unmeasured: the base's /scan, /setup and /config pages were used, but not systematically tested against every field.",
       "executed_at": "2026-10-01T02:40:00Z",
       "executed_by": "project owner (hardware), agent (repository-side checks)",
-      "notes": "First successful flash of product firmware from this repository. Tagged NAT_ROUTER_WORKING. This validates the delivery pipeline end to end and closes the open question of whether the served payload reaches the device. The image is base-only: A7670E 4G, GNSS, camera and SD are not present."
+      "notes": "First successful flash of product firmware from this repository. Tagged NAT_ROUTER_WORKING. This validates the delivery pipeline end to end and answers the open question of whether the served payload reaches the device. It also retires the long-standing 'has the client ever actually reached the internet' doubt for the WiFi uplink: the answer is yes, observed by the owner. The image is base-only: A7670E 4G, GNSS, camera and SD are not present. The base has no notion of two uplinks - 'uplink' in its source means only 'the STA side' - so the WiFi-vs-4G selector is new work, while the WiFi-uplink UI (/scan, /setup, /config) is already built."
     }
   ]
 }

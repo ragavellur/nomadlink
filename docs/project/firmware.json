@@ -39,7 +39,7 @@
     "web_installer_mount": "PASS - esp-web-install-button custom element defined, manifest attribute set, button visible (Chrome)",
     "manifest_and_binaries_served": "PASS - HTTP 200 for manifest and all four parts at the declared offsets; sizes 17664 / 3072 / 8192 / 1370000 bytes match the manifest",
     "actual_flash_to_device": "PASS - flashed by the project owner from the published web installer on 2026-10-01; AP broadcast SSID 'NomadLink'. Recorded as TEST-810.",
-    "on_device_runtime": "PARTIAL - base firmware boots and the AP broadcasts as NomadLink, confirmed by the project owner. Not yet measured: forward throughput, DHCP lease, client internet access, or any 4G/GNSS/camera capability (none is in this image).",
+    "on_device_runtime": "PASS for the base path - boots, broadcasts 'NomadLink', and a client behind the AP reaches the internet (owner-confirmed, TEST-810), so SoftAP + DHCP + NAPT + forwarding + STA uplink all work. Not measured: throughput in Mbps, load behaviour. No 4G/GNSS/camera/SD in this image.",
     "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app binary size 0x14f970 / 1374576 bytes)",
     "compile_gate_rejects_broken_source": "PASS - invalid C injected into main/portmap.c, gate exited 1 naming file and line; reverted and tree built again",
     "served_binary_is_local_build": "PASS - payload staged by scripts/project-tracker/stage-firmware.sh from build_esp32s3, offsets asserted against flash_args (0x0/0x8000/0xf000/0x20000)",
@@ -57,5 +57,20 @@
     "note": "The MQTT topic prefix stays esp32_nat_router: it is a functional broker identifier, not branding, and renaming it would break existing subscriptions."
   },
   "reproducibility": "NOT byte-reproducible, by upstream design: CMakeLists.txt force-rebuilds esp_app_desc.c so __DATE__/__TIME__ stay current. Two builds of identical source differ in ~67 bytes of the app descriptor only, same length. Do not treat a hash mismatch as a corrupt payload; the freshness guard is timestamp-based for this reason.",
-  "tag": "NAT_ROUTER_WORKING"
+  "tag": "NAT_ROUTER_WORKING",
+  "ui_present_in_base": [
+    "/ (dashboard)",
+    "/setup (first-run: uplink SSID+password, AP SSID+password)",
+    "/scan (WiFi scan)",
+    "/config (full config incl. uplink ssid/password, static IP, AP settings)",
+    "/mappings (port mapping)",
+    "/firewall (ACL)",
+    "/vpn (WireGuard)",
+    "/api/ota-upload",
+    "/api/config-export|import"
+  ],
+  "ui_still_to_build": [
+    "A7670E 4G PPP controls (dial/disconnect, signal, operator)",
+    "A WiFi-vs-4G uplink selector - the base hard-assumes the STA is the only uplink, so this concept does not exist yet"
+  ]
 }
