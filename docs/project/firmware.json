@@ -55,5 +55,6 @@
     "firmware_artifact": "nomadlink.bin (IDF project renamed from upstream's esp32_nat_router)",
     "console_banner": "NomadLink - Remote Console",
     "note": "The MQTT topic prefix stays esp32_nat_router: it is a functional broker identifier, not branding, and renaming it would break existing subscriptions."
-  }
+  },
+  "reproducibility": "NOT byte-reproducible, by upstream design: CMakeLists.txt force-rebuilds esp_app_desc.c so __DATE__/__TIME__ stay current. Two builds of identical source differ in ~67 bytes of the app descriptor only, same length. Do not treat a hash mismatch as a corrupt payload; the freshness guard is timestamp-based for this reason."
 }

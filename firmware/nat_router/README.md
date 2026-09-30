@@ -78,6 +78,14 @@ make stage-firmware
 
 `make product` warns when the staged payload is older than the sources it came from.
 
+**The build is not byte-reproducible, by upstream design.** `CMakeLists.txt` defines
+a `force_app_desc_rebuild` target so `esp_app_desc.c` recompiles every build and
+`__DATE__`/`__TIME__` stay current. Two builds of the same source therefore differ
+in ~67 bytes of the app descriptor and nowhere else — same length, same code. A
+hash comparison between the staged payload and a fresh build will therefore always
+mismatch, and that is not corruption. The freshness guard is timestamp-based for
+this reason.
+
 ## NomadLink changes (to be added here, not alongside)
 
 - A7670E 4G PPP netif as an additional uplink, over UART GPIO17/18
