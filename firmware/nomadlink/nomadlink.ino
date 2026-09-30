@@ -55,16 +55,43 @@
 #include <lwip/ip4_napt.h>
 #include <esp_netif.h>
 #include <esp_mac.h>
+#include <esp_event.h>
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
-/* --- modem wiring, matching every proven baseline --------------------- */
+/* --- modem wiring, verified against Waveshare's own materials -----------
+ *
+ * UART pins and baud are taken verbatim from the vendor's example for this
+ * exact board (X7670_Network.ino):
+ *     static const int RXPin = 17, TXPin = 18;
+ *     static const uint32_t GPSBaud = 115200;
+ *
+ * The power pin was wrong at 21. Waveshare's FAQ, "How to power off the 4G
+ * module?", states the A7670E is software-powered through GPIO33 or GPIO22,
+ * active HIGH. GPIO21 drives nothing on this board, so the previous "power on"
+ * step was a no-op and the module was never actually enabled. */
 #define MODEM_TX_PIN  18
 #define MODEM_RX_PIN  17
-#define MODEM_PWR_PIN 21
-#define MODEM_PWRKEY  42
+#define MODEM_PWR_PIN 33
+/* GPIO42 is NOT the module's PWRKEY. In the schematic the PWRKEY net runs to
+ * the CH343P USB-serial chip, not to an ESP32 GPIO, so the ESP32 cannot pulse
+ * it. PWRKEY is therefore not driven from here; the module is expected to come
+ * up on its own once the power pin is asserted. */
+/* Modem UART baud. 115200 is the verified rate for this module and board, and
+ * is the only rate the firmware should ever use.
+ *
+ * An earlier revision "fixed" this to 921600 on the theory that the serial link
+ * was saturating and causing the client's packet loss. That theory was wrong.
+ * The measured traffic was tens of bytes per second, roughly three orders of
+ * magnitude below the 11.2 KB/s ceiling, and a saturated link produces delay
+ * and retransmits, not 38% loss. The change gained nothing and cost a modem
+ * wedged at a rate it would not answer at, so it has been reverted.
+ *
+ * Do not change this without evidence that 115200 is itself the problem. */
 #define MODEM_BAUD    115200
 
 /* --- PPP / LCE --------------------------------------------------------- */
@@ -82,6 +109,13 @@
  * real pool is 11 addresses regardless of the /24 netmask. */
 #define AP_DHCP_COUNT      11
 #define AP_DHCP_END        "192.168.4.12"
+/* Public resolvers advertised to clients. NOT the AP address: this build has no
+ * lwIP DNS server, so pointing clients at the gateway is a silent total DNS
+ * outage. See the startSoftAP() comment. Must be network-byte-order uint32. */
+#define AP_DNS_PRIMARY     0x08080808u  /* 8.8.8.8  */
+#define AP_DNS_SECONDARY   0x01010101u  /* 1.1.1.1  */
+#define AP_DNS_PRIMARY_STR   "8.8.8.8"
+#define AP_DNS_SECONDARY_STR "1.1.1.1"
 #define STAGE              3
 
 HardwareSerial modem(1);
@@ -98,6 +132,10 @@ static volatile uint32_t  g_rx_bytes   = 0;
 static volatile bool      g_dialed     = false;
 static bool               g_napt_on    = false;
 static bool               g_tcpip_ready= false;
+/* Set when the PPP feeder task must stop. Currently never cleared after being
+ * set (that would require re-creating the task), but latched so a future WAN
+ * redial can request a clean stop instead of racing the task. */
+static volatile bool      g_ppp_feed_stop = false;
 
 /* --- logging ---------------------------------------------------------- */
 static void say(const char *fmt, ...) {
@@ -175,29 +213,42 @@ static void logAT(const char *label, const char *cmd) {
   say("  %-22s %s", label, r.length() ? r.c_str() : "(no reply)");
 }
 
+/* Moves the module to MODEM_BAUD_TARGET, falling back to the boot rate.
+ *
+ * Returns the baud actually in use, so the caller reports the real rate instead
+ * of the intended one. Leaving this to fail silently is what made the link
+ * unusable: at 921600 with a module still at 115200, every AT command returned
+ * nothing and PPP never came up, which looked like a dead modem rather than a
+ * baud mismatch.
+ *
+ * The verification step matters as much as the switch. A module that accepts
+ * the IPB= command but fails to actually reconfigure would otherwise leave us
+ * talking to nothing with no indication why. */
+
 static void powerOnModem() {
+  /* GPIO33 is the documented module power enable, active HIGH. It is asserted
+   * LOW first so the module gets a real power cycle rather than being left in
+   * whatever state the previous run left it in. */
   pinMode(MODEM_PWR_PIN, OUTPUT);
+  digitalWrite(MODEM_PWR_PIN, LOW);
+  delay(4000);
   digitalWrite(MODEM_PWR_PIN, HIGH);
-  delay(800);
 
   modem.begin(MODEM_BAUD, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
-  delay(400);
 
-  say("PWR-ON: probing before any PWRKEY pulse");
-  if (modemAnswers(1500, 3)) {
-    say("PWR-ON: modem already in command mode");
-    return;
+  /* The A7670E needs several seconds after power-up before it answers AT. */
+  say("PWR-ON: module enabled on GPIO%d, waiting for boot", MODEM_PWR_PIN);
+  delay(8000);
+
+  if (modemAnswers(2000, 3)) {
+    say("PWR-ON: modem in command mode");
+  } else if (!escapeDataMode()) {
+    say("PWR-ON: silent after escape, retrying after a longer wait");
+    delay(8000);
+    if (!modemAnswers(3000, 6)) {
+      say("PWR-ON: STILL SILENT");
+    }
   }
-  if (escapeDataMode()) return;
-
-  /* Only a genuinely silent modem gets a PWRKEY pulse. On a live modem a pulse
-   * hangs up the call, so it must never be sent speculatively. */
-  say("PWR-ON: silent after escape, sending PWRKEY pulse");
-  pinMode(MODEM_PWRKEY, OUTPUT);
-  digitalWrite(MODEM_PWRKEY, HIGH); delay(100);
-  digitalWrite(MODEM_PWRKEY, LOW);  delay(1200);
-  digitalWrite(MODEM_PWRKEY, HIGH); delay(6000);
-  say("PWR-ON: %s", modemAnswers(2000, 8) ? "up after PWRKEY" : "STILL SILENT");
 }
 
 /* ------------------------------------------------------------------ *
@@ -271,7 +322,39 @@ static void showIp(const char *when) {
  * If this fails the WAN is broken and no amount of forwarding will help; if it
  * passes, any remaining failure is in the SoftAP/NAPT path. A bare TCP connect
  * to a public address is used rather than a name lookup so the test does not
- * depend on DNS, which is itself one of the things being tested. */
+ * depend on DNS, which is itself one of the things being tested.
+ *
+ * The connect wait is a select() on the writable set, NOT a poll of SO_ERROR.
+ * A socket that is still handshaking returns SO_ERROR==0, so the old poll loop
+ * declared "CONNECTED" on the first iteration - about 0 ms after connect() -
+ * and closed the socket while the SYN was still in flight. That is how an
+ * entirely dead link printed "CONNECTED" and then "send stalled errno=119"
+ * (EINPROGRESS) in the same boot: the false success was the connect wait, not
+ * the link. select() only reports writable once the handshake is really done. */
+static bool waitForConnect(int fd, unsigned timeout_ms) {
+  fd_set wfds;
+  FD_ZERO(&wfds);
+  FD_SET(fd, &wfds);
+  struct timeval tv;
+  tv.tv_sec  = timeout_ms / 1000;
+  tv.tv_usec = (timeout_ms % 1000) * 1000;
+
+  unsigned long t0 = millis();
+  int rc = lwip_select(fd + 1, NULL, &wfds, NULL, &tv);
+  say("  connect select() -> rc=%d after %lu ms", rc, (unsigned long)(millis() - t0));
+  if (rc <= 0) return false;
+
+  /* Writable can also mean a failed connect; SO_ERROR now holds the real
+   * verdict and is safe to read because the handshake has concluded. */
+  int soerr = 0;
+  socklen_t slen = sizeof(soerr);
+  if (lwip_getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &slen) != 0 || soerr != 0) {
+    if (soerr != 0) say("  connect select() writable but SO_ERROR=%d", soerr);
+    return false;
+  }
+  return true;
+}
+
 static bool selftestEgress() {
   int fd = lwip_socket(AF_INET, SOCK_STREAM, 0);
   if (fd < 0) { say("  egress self-test: socket() failed"); return false; }
@@ -290,25 +373,251 @@ static bool selftestEgress() {
     return false;
   }
 
-  /* Poll the non-blocking connect for up to 10 s. */
-  bool ok = false;
-  unsigned long t0 = millis();
-  while (millis() - t0 < 10000) {
-    int soerr = 0;
-    socklen_t slen = sizeof(soerr);
-    if (lwip_getsockopt(fd, SOL_SOCKET, SO_ERROR, &soerr, &slen) == 0 && soerr == 0) {
-      ok = true;
-      break;
-    }
-    if (soerr != 0) {
-      say("  egress self-test: connect error (errno=%d)", soerr);
-      break;
-    }
-    delay(50);
-  }
+  bool ok = waitForConnect(fd, 15000);
   lwip_close(fd);
   say("  egress self-test: TCP 1.1.1.1:80 %s", ok ? "CONNECTED" : "TIMED OUT");
   return ok;
+}
+
+/* Measures how many bytes per second the LTE link actually carries.
+ *
+ * A connection test only proves the pipe is open. It says nothing about whether
+ * the pipe is wide enough, and a saturated link looks exactly like a flaky one:
+ * huge latency variance and 30-40% loss on ICMP. That is what hid the 115200
+ * baud bottleneck for an entire bring-up cycle, so capacity is now measured
+ * explicitly rather than inferred from "it connected".
+ *
+ * A single 6 KB request against 1.1.1.1 is enough: the timing is dominated by
+ * the radio link, and the response body size is known. */
+static void measureThroughput() {
+  const int fd = lwip_socket(AF_INET, SOCK_STREAM, 0);
+  if (fd < 0) { say("  throughput: socket() failed"); return; }
+
+  struct sockaddr_in dst;
+  memset(&dst, 0, sizeof(dst));
+  dst.sin_family = AF_INET;
+  dst.sin_port   = htons(80);
+  inet_pton(AF_INET, "1.1.1.1", &dst.sin_addr);
+
+  /* Reuse the non-blocking connect. The selector in waitForConnect() is the
+   * only reliable "is it really connected" check; a plain blocking connect
+   * returned ENETUNREACH (errno 113) immediately after an identical non-blocking
+   * connect to the same host had just succeeded, which says the blocking form is
+   * the unreliable part, not the route. */
+  lwip_fcntl(fd, F_SETFL, O_NONBLOCK);
+  int rc = lwip_connect(fd, (struct sockaddr *)&dst, sizeof(dst));
+  if (rc != 0 && errno != EINPROGRESS) {
+    say("  throughput: connect failed immediately (errno=%d)", errno);
+    lwip_close(fd);
+    return;
+  }
+  bool up = waitForConnect(fd, 15000);
+  if (!up) {
+    say("  throughput: no connection after 15 s");
+    lwip_close(fd);
+    return;
+  }
+
+  /* Restore blocking mode before writing. Leaving the socket non-blocking made
+   * every lwip_send() return EWOULDBLOCK, so the request was never put on the
+   * wire and the measurement read 0 bytes even though the link was fine. */
+  lwip_fcntl(fd, F_SETFL, 0);
+  unsigned long t0 = millis();
+  /* Report a failed send explicitly. Previously the loop just broke on n <= 0,
+   * so a send that never reached the wire was indistinguishable from a network
+   * that accepted the request and returned nothing. */
+  const char *req = "GET / HTTP/1.0\r\nHost: 1.1.1.1\r\nConnection: close\r\n\r\n";
+  size_t want = strlen(req);
+  size_t sent = 0;
+  while (sent < want) {
+    int n = lwip_send(fd, req + sent, want - sent, 0);
+    if (n <= 0) {
+      say("  throughput: send stalled after %u/%u bytes (errno=%d)", (unsigned)sent, (unsigned)want, errno);
+      break;
+    }
+    sent += n;
+  }
+
+  uint32_t rx = 0;
+  uint8_t buf[512];
+  while (millis() - t0 < 15000) {
+    int n = lwip_recv(fd, buf, sizeof(buf), 0);
+    if (n > 0) { rx += n; continue; }
+    if (n == 0) break;            /* peer closed: we have the whole body */
+    if (errno != EAGAIN && errno != EWOULDBLOCK) break;
+    delay(10);
+  }
+  unsigned long dt = millis() - t0;
+  lwip_close(fd);
+
+  if (dt == 0) dt = 1;
+  say("  throughput: %lu bytes in %lu ms = %.1f KB/s (%.0f kbit/s)",
+      (unsigned long)rx, dt, (rx / 1024.0) / (dt / 1000.0), (rx * 8.0) / (dt / 1000.0));
+}
+
+/* Measures ICMP loss and latency to the LTE gateway, from the ESP32.
+ *
+ * The reason this exists: 38% client-side ICMP loss with 89 ms to 3.5 s RTT
+ * spread was originally blamed on a saturated 115200 baud UART. That is not
+ * supportable. Pings of that size are tens of bytes per second, roughly three
+ * orders of magnitude below the 11.2 KB/s ceiling, so the serial pipe cannot
+ * be the cause. A saturated link also does not produce loss; it produces delay
+ * and retransmits. Loss of that shape points at the radio instead.
+ *
+ * CSQ was 28 (good, -53 dBm) at boot, so signal strength alone does not
+ * explain it either. This test separates the two by pinging the first hop
+ * inside the carrier network: bad results here mean the radio link, good results
+ * mean the loss is further out or client-side. */
+static uint16_t ipChecksum(const void *data, size_t len) {
+  const uint8_t *p = (const uint8_t *)data;
+  uint32_t sum = 0;
+  while (len > 1) { sum += (uint32_t)((p[0] << 8) | p[1]); p += 2; len -= 2; }
+  if (len) sum += (uint32_t)(p[0] << 8);
+  while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+  return (uint16_t)~sum;
+}
+
+static void pingTarget(const char *label, const char *addr) {
+  /* IPPROTO_ICMP over SOCK_RAW, not SOCK_DGRAM. An earlier version passed
+   * protocol 0 to socket(), which silently produced a *UDP* socket, so the
+   * "0/10 replied" reading it produced was meaningless: a UDP datagram to port
+   * 0 can never draw a reply regardless of radio conditions. */
+  const int fd = lwip_socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
+  if (fd < 0) { say("  ping %s: socket() failed (errno=%d)", label, errno); return; }
+
+  struct sockaddr_in dst;
+  memset(&dst, 0, sizeof(dst));
+  dst.sin_family = AF_INET;
+  inet_pton(AF_INET, addr, &dst.sin_addr);
+
+  const int tries = 10;
+  int got = 0;
+  uint32_t rtt_sum = 0, rtt_min = 0xFFFFFFFF, rtt_max = 0;
+  uint8_t buf[128];
+
+  struct timeval tv = { 2, 0 };
+  lwip_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
+  for (int i = 0; i < tries; i++) {
+    uint8_t pkt[12 + 8] = { 0x00 };
+    pkt[0] = 8;                                  /* type: echo request */
+    pkt[1] = 0;                                  /* code */
+    pkt[2] = 0; pkt[3] = (uint8_t)i;             /* checksum, filled below */
+    pkt[4] = 0; pkt[5] = 0;                      /* identifier */
+    pkt[6] = (uint8_t)i; pkt[7] = 0;             /* sequence */
+    for (int k = 12; k < 20; k++) pkt[k] = (uint8_t)(0xB0 + k);  /* payload */
+    uint16_t ck = ipChecksum(pkt, sizeof(pkt));
+    pkt[2] = (uint8_t)(ck >> 8); pkt[3] = (uint8_t)(ck & 0xFF);
+
+    unsigned long t0 = millis();
+    if (lwip_sendto(fd, pkt, sizeof(pkt), 0, (struct sockaddr *)&dst, sizeof(dst)) < 0) break;
+    if (lwip_recv(fd, buf, sizeof(buf), 0) < 0) { delay(200); continue; }
+    if (buf[0] != 0) { delay(200); continue; }   /* 0 = echo reply */
+
+    uint32_t rtt = millis() - t0;
+    got++; rtt_sum += rtt;
+    if (rtt < rtt_min) rtt_min = rtt;
+    if (rtt > rtt_max) rtt_max = rtt;
+    delay(200);
+  }
+  lwip_close(fd);
+
+  if (got == 0) {
+    say("  ping %-14s %-15s 0/%d replied", label, addr, tries);
+  } else {
+    say("  ping %-14s %-15s %d/%d (%.0f%% loss) avg %lu ms, min %lu, max %lu",
+        label, addr, got, tries, (tries - got) * 100.0 / tries,
+        (unsigned long)(rtt_sum / got), (unsigned long)rtt_min, (unsigned long)rtt_max);
+  }
+}
+
+static void measurePing() {
+  pingTarget("carrier gw", "10.64.64.64");
+  pingTarget("1.1.1.1", "1.1.1.1");
+  pingTarget("8.8.8.8", "8.8.8.8");
+}
+
+/* Logs the moment the DHCP server hands a client an address.
+ *
+ * The status line can only report the *count* of associated stations, so
+ * "associated but never got a lease" and "got a lease and is now failing" look
+ * identical from the console. This event fires once per lease and prints the
+ * address, which separates the two.
+ *
+ * The event runs on the event loop task, so it only touches a counter and prints;
+ * it must not block. */
+static void onLeaseAssigned(void *arg, esp_event_base_t base, int32_t id,
+                            void *data) {
+  (void)arg;
+  if (base == IP_EVENT && id == IP_EVENT_AP_STAIPASSIGNED) {
+    ip_event_got_ip_t *e = (ip_event_got_ip_t *)data;
+    /* The IDF reports an esp_ip4_addr_t, which is a distinct type from lwIP's
+     * ip4_addr_t even though the layouts match. Copy the value into a real
+     * ip4_addr_t rather than punning the pointer through a cast.
+     *
+     * ip4addr_ntoa_r() rather than ip4addr_ntoa(): the plain form returns one
+     * shared static buffer, which is a real hazard as soon as two addresses are
+     * printed in a single call. */
+    ip4_addr_t a;
+    a.addr = e->ip_info.ip.addr;
+    char buf[20];
+    ip4addr_ntoa_r(&a, buf, sizeof(buf));
+    say("  DHCP LEASE -> %s (gateway %s)", buf, AP_GW_IP);
+  }
+}
+
+static void watchLeases() {
+  esp_err_t err = esp_event_handler_register(IP_EVENT, IP_EVENT_AP_STAIPASSIGNED,
+                                             onLeaseAssigned, NULL);
+  say("  lease watcher %s (err=%d)", err == ESP_OK ? "registered" : "FAILED", (int)err);
+}
+
+/* ------------------------------------------------------------------------- *
+ *  Packet tap on the PPP output path
+ *
+ *  Everything else in this file is a guess about what a client is doing. The
+ *  PPP TX/RX byte counters that pppapi reports cannot distinguish "the client
+ *  sent nothing" from "lwIP dropped the packet before it reached the modem",
+ *  and both look identical from the console. lwIP's mib2 counters and the
+ *  forward-path debug strings are not compiled into the prebuilt liblwip.a, so
+ *  the netif output function is the one place a tap can be installed.
+ *
+ *  Wrapping it counts packets that lwIP actually handed to PPP, which is the
+ *  exact boundary where a forwarding or NAPT failure becomes visible:
+ *
+ *    tap count 0 while a client is browsing  -> nothing arrived from the AP
+ *    tap count rising                         -> forwarding works
+ *
+ *  pbuf_clone() is used because p may be a PBUF_REF and NAPT rewrites the
+ *  header in place; reading through p->payload directly is safe here because
+ *  this runs inside the tcpip thread, which owns the packet at that point.
+ * ---------------------------------------------------------------------- */
+static struct netif *g_ppp_netif = NULL;
+static netif_output_fn g_ppp_output_orig = NULL;
+static volatile uint32_t g_tap_pkts = 0;
+static volatile uint32_t g_tap_bytes = 0;
+
+/* netif->output is netif_output_fn, whose return type is err_t, not err_t_t. */
+static err_t pppOutputTap(struct netif *netif, struct pbuf *p,
+                          const ip4_addr_t *ipaddr) {
+  if (p != NULL && p->payload != NULL && p->tot_len >= IP_HLEN) {
+    g_tap_pkts++;
+    g_tap_bytes += p->tot_len;
+  }
+  return g_ppp_output_orig(netif, p, ipaddr);
+}
+
+static void installTap() {
+  if (g_ppp_netif == NULL || g_ppp_output_orig != NULL) {
+    return;
+  }
+  g_ppp_output_orig = g_ppp_netif->output;
+  if (g_ppp_output_orig == NULL) {
+    say("  tap FAILED: PPP netif has no output function");
+    return;
+  }
+  g_ppp_netif->output = pppOutputTap;
+  say("  tap installed on PPP output");
 }
 
 /* Dump every netif. A router has to be able to explain its own routing table,
@@ -351,12 +660,21 @@ static void startSoftAP() {
    * broadcast its SSID, so the only symptom was clients that associated and
    * then sat at 169.254.x.x forever. See BUG-008.
    *
-   * dns1 (4th arg) is the DHCP lease start for a server interface. The pool is
-   * only 11 addresses wide: start_ip to start_ip+10. */
+*   dns1 (4th arg) is the DHCP lease start for a server interface. The pool is
+ *   only 11 addresses wide: start_ip to start_ip+10.
+ *
+ *   The 5th arg enables the DNS offering, and it MUST be nonzero. Without it the
+ *   DHCP offer carries no DNS option at all: NetworkInterface::config() only sets
+ *   the OFFER_DNS bit when dns != 0 (NetworkInterface.cpp, "Offer DNS to DHCP
+ *   clients"), and there is no way to set that bit afterwards - esp_netif_set_dns_info()
+ *   on a running server stores the address but never flips the offer bit. The old
+ *   call passed no 5th arg, so clients took a lease, pinged 8.8.8.8 (raw IP, no
+ *   DNS involved), and had zero resolvers: every name lookup timed out. */
   bool cfg = WiFi.softAPConfig(IPAddress(192, 168, 4, 1),
                                IPAddress(192, 168, 4, 1),
                                IPAddress(255, 255, 255, 0),
-                               IPAddress(192, 168, 4, 2));
+                               IPAddress(192, 168, 4, 2),
+                               IPAddress(AP_DNS_PRIMARY));
   say("  ap config     %s", cfg ? "ok" : "FAILED - DHCP will not start");
   if (!cfg) {
     say("  FATAL: softAPConfig rejected the netmask; no leases can be served");
@@ -375,8 +693,47 @@ static void startSoftAP() {
    * end_ip = start_ip + 10 unconditionally. */
   say("  dhcp leases  %s .. %s (%d addresses)", AP_DHCP_START, AP_DHCP_END,
       AP_DHCP_COUNT);
-  say("  dns handed to clients: %s (the gateway, so client lookups traverse the NAT)",
-      AP_GW_IP);
+  /* DNS servers handed to clients.
+   *
+   * This must NOT be the AP address. lwIP's DNS server is compiled out of this
+   * build (no dns_setserver()/dns_getserver() among the liblwip.a exports), so
+   * pointing clients at 192.168.4.1 means every lookup they make is sent to a
+   * port nothing is listening on: raw-IP traffic works, `ping google.com` and
+   * every website fails. That is a silent, total DNS outage, and it is the
+   * worst possible failure for a travel router because the WAN looks healthy.
+   *
+   * Advertising public resolvers instead sends client lookups straight out
+   * through the NAT, where they are translated like any other UDP packet.
+   * 8.8.8.8 and 1.1.1.1 are used because they are both reachable over the Airtel
+   * CGNAT link; see the nslookup evidence in TASK-101. */
+  esp_netif_t *apnetif = esp_netif_get_handle_from_ifkey("WIFI_AP_DEF");
+  if (apnetif != NULL) {
+    /* esp_netif_set_dns_info() is the supported route and is what Arduino's own
+     * NetworkInterface::config() calls internally.
+     *
+     * esp_netif_dhcps_option(ESP_NETIF_DOMAIN_NAME_SERVER, ...) is NOT usable
+     * here: it returns ESP_ERR_ESP_NETIF_INVALID_PARAMS (0x5001 = 20481) because
+     * the DHCP server is already running, started by WiFi.softAP() above. It must
+     * be called before the server starts, and restarting the server to satisfy it
+     * would drop the leases just handed out.
+     *
+     * The dns_info_t member is the IDF-style union with u_addr.ip4.addr, NOT the
+     * plain .addr that the IP_EVENT payload uses; the two structs differ. */
+    esp_netif_dns_info_t dns;
+    dns.ip.type = IPADDR_TYPE_V4;
+    dns.ip.u_addr.ip4.addr = AP_DNS_PRIMARY;
+    esp_err_t r1 = esp_netif_set_dns_info(apnetif, ESP_NETIF_DNS_MAIN, &dns);
+    dns.ip.u_addr.ip4.addr = AP_DNS_SECONDARY;
+    esp_err_t r2 = esp_netif_set_dns_info(apnetif, ESP_NETIF_DNS_BACKUP, &dns);
+    say("  dns for clients: %s, %s (err=%d/%d)", AP_DNS_PRIMARY_STR, AP_DNS_SECONDARY_STR,
+        (int)r1, (int)r2);
+    if (r1 != ESP_OK || r2 != ESP_OK) {
+      say("  FATAL: clients will get no usable DNS; name lookups will fail");
+    }
+  } else {
+    say("  dns for clients: FAILED, no esp_netif for the AP");
+  }
+  watchLeases();
 
   /* Starting the AP has a side effect that matters two stages later: the WiFi
    * library has already run esp_netif_init() and tcpip_init() on our behalf, so
@@ -557,6 +914,10 @@ static void startRouting() {
   esp_err_t err = esp_netif_napt_enable(ap);
   g_napt_on = (err == ESP_OK);
   say("  NAPT on SoftAP netif: %s (err=%d)", g_napt_on ? "enabled" : "FAILED", (int)err);
+  g_ppp_netif = &ppp_netif;
+  LOCK_TCPIP_CORE();
+  installTap();
+  UNLOCK_TCPIP_CORE();
   say("  ~16 KB of the 512-entry NAPT table now allocated from heap");
   dumpNetifs();
 
@@ -566,11 +927,53 @@ static void startRouting() {
    * indistinguishable. */
   say("  local egress (ESP32 itself):");
   selftestEgress();
+  say("  link capacity (serial ceiling is %.1f KB/s at %lu baud):",
+      (MODEM_BAUD / 10.0) / 1024.0, (unsigned long)MODEM_BAUD);
+  measureThroughput();
+  say("  radio health (is the loss the radio, or further out?):");
+  measurePing();
   say("  client egress (laptop through the NAT) cannot be self-tested;");
   say("    confirm on the client that a page loads.");
 }
 
 /* ------------------------------------------------------------------ */
+
+/* The PPP receive path must be fed continuously, independently of what
+ * setup()/loop() happen to be doing. The self-tests in startRouting() block for
+ * up to ~80 s (15 s TCP connect timeout, twice, plus three 10-ping rounds). If
+ * the UART is only drained from loop(), nothing reads it during those tests:
+ * the modem sends LCP/ECHO replies, SYN-ACKs and ICMP replies that pile up
+ * unread, and the link looks dead. That mismatch is exactly how a healthy
+ * bearer got reported as 0/10 pings and two TCP timeouts. This task owns the
+ * receive feed for its whole lifetime. */
+static void pppFeederTask(void *arg) {
+  (void)arg;
+  uint8_t buf[256];
+  while (!g_ppp_feed_stop) {
+    if (g_dialed && g_pcb != NULL && g_got_ip) {
+      size_t n = drainUart(buf, sizeof(buf), 20);
+      if (n > 0) {
+        g_rx_bytes += n;
+        pppos_input_tcpip(g_pcb, buf, n);
+      }
+    } else {
+      vTaskDelay(10);
+    }
+  }
+  vTaskDelete(NULL);
+}
+
+static void startPppFeeder() {
+  g_ppp_feed_stop = false;
+  if (xTaskCreatePinnedToCore(pppFeederTask, "pppFeeder", 4096, NULL,
+                              /* Run it above the loop task so the self-tests'
+                               * blocking socket waits can never starve it. */
+                              5, NULL, 1) != pdPASS) {
+    say("  pppFeeder task FAILED to start");
+  } else {
+    say("  pppFeeder task up on core 1");
+  }
+}
 
 void setup() {
   Serial0.begin(115200);
@@ -587,8 +990,12 @@ void setup() {
 #endif
 
 #if STAGE >= 3
-  if (ppp_ok) startRouting();
-  else say("STAGE 3: skipped - no PPP interface to route through");
+  if (ppp_ok) {
+    /* Start the UART feed before the self-tests: they block this task for ~80 s
+     * and the modem must keep being drained throughout. */
+    startPppFeeder();
+    startRouting();
+  } else say("STAGE 3: skipped - no PPP interface to route through");
 #endif
 
   say("\nREADY. Join '%s' from a phone or laptop.", AP_SSID_PREFIX);
@@ -599,16 +1006,9 @@ void setup() {
 }
 
 void loop() {
-  /* Keep the PPP link fed. Leaving the UART unattended lets the modem's send
-   * buffer overflow and stalls the session. */
-  if (g_dialed && g_pcb && g_got_ip) {
-    uint8_t buf[256];
-    size_t n = drainUart(buf, sizeof(buf), 20);
-    if (n > 0) {
-      g_rx_bytes += n;
-      pppos_input_tcpip(g_pcb, buf, n);
-    }
-  }
+  /* The PPP receive path is owned by the pppFeeder task (see startPppFeeder()).
+   * Feeding from here too would double-drain a single UART. loop() only watches
+   * the client side and reports status. */
 
   /* Report the moment a client associates. "Associated but no lease" and "never
    * associated" are different failures and the status line alone does not tell
@@ -624,12 +1024,24 @@ void loop() {
   static uint32_t last = 0;
   if (millis() - last > 5000) {
     last = millis();
-    say("[status] ap_clients=%d ppp=%s phase=%s napt=%s out=%lu in=%lu",
+    /* Deltas, not totals. A client that associates and then generates real
+     * traffic must make the PPP byte counters climb. If a client is browsing
+     * and the deltas stay at zero, its packets are not reaching the LTE netif at
+     * all, which localises the fault to forwarding rather than to NAPT,
+     * the modem, or the carrier. */
+    static uint32_t prev_out = 0, prev_in = 0;
+    uint32_t d_out = g_tx_bytes - prev_out;
+    uint32_t d_in  = g_rx_bytes - prev_in;
+    prev_out = g_tx_bytes;
+    prev_in  = g_rx_bytes;
+    say("[status] clients=%d ppp=%s napt=%s @%lu | ppp_bytes +%lu out / +%lu in  (totals %lu/%lu) | fwd_tap=%lu pkts/%lu B",
         now_clients,
         g_got_ip ? "up" : "down",
-        phaseName(g_last_phase),
         g_napt_on ? "on" : "off",
-        (unsigned long)g_tx_bytes, (unsigned long)g_rx_bytes);
+        (unsigned long)MODEM_BAUD,
+        (unsigned long)d_out, (unsigned long)d_in,
+        (unsigned long)g_tx_bytes, (unsigned long)g_rx_bytes,
+        (unsigned long)g_tap_pkts, (unsigned long)g_tap_bytes);
   }
   delay(10);
 }
