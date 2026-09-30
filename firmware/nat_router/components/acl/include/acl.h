@@ -1,6 +1,6 @@
 /* ACL (Access Control List) Firewall Component
  *
- * Provides packet filtering capabilities for the ESP32 NAT Router.
+ * Provides packet filtering capabilities for NomadLink.
  *
  * Network topology:
  *   Internet <---> [STA] ESP32 [AP] <---> Internal Clients

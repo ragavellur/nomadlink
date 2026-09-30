@@ -32,6 +32,12 @@ baseline:
 product:
 	@bash scripts/project-tracker/build-product.sh
 
+# Build the product firmware and stage it where the web installer serves it from.
+# Run this after any firmware change that must reach users, or the installer keeps
+# flashing the previous image while the source says otherwise.
+stage-firmware:
+	@bash scripts/project-tracker/stage-firmware.sh
+
 flash:
 ifndef SKETCH
 	$(error set SKETCH, e.g. make flash SKETCH=tracker)

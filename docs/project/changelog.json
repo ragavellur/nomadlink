@@ -265,6 +265,20 @@
         "TASK-801",
         "TASK-802"
       ]
+    },
+    {
+      "timestamp": "2026-10-01T02:10:00Z",
+      "actor": "agent",
+      "type": "FIX",
+      "summary": "Rebrand the product and its artifact; installer now serves our own build. REPORTED SYMPTOM: the flashed SSID still read ESP32_NAT_Router and the flashed file was still called esp32_nat_router.bin after both had been changed in the source. ROOT CAUSE, and it is a process failure rather than a string failure: the web installer was serving upstream's PREBUILT binaries. The page rendered, the manifest resolved, every part returned HTTP 200 and every check passed -- while the served bytes were not built from this repository at all, so no source edit could ever reach a user. A correct page serving a stale artifact is exactly the failure this project already recorded for *.bin in .gitignore, and it is the same class as 'a compile gate that reported ok having built nothing' (L-16). FIX, in four parts. (1) New scripts/project-tracker/stage-firmware.sh, exposed as 'make stage-firmware', builds the product and stages it into docs/project/firmware/, so one command owns the path from source to the bytes a user flashes and the two cannot drift silently. It asserts the four flash offsets against build_esp32s3/flash_args before copying (0x0, 0x8000, 0xf000, 0x20000): a wrong offset produces an image that flashes cleanly and then does not boot, so the offsets are checked rather than assumed. Written for bash 3.2 -- an initial mapfile version failed on this machine and the failure was the check working, not the check being optional. (2) 'make product' now WARNs when the staged payload is older than the sources it came from, naming the file, so the next drift is loud instead of invisible. (3) Artifact renamed: the IDF project is now 'nomadlink' in CMakeLists.txt, and since idf.py derives the output filename from the project name this is what turns esp32_nat_router.bin into nomadlink.bin; the manifest, staging script and both build scripts were updated in the same commit. (4) Branding: AP SSID ESP32_NAT_Router -> NomadLink, mDNS hostname esp32-nat-router -> nomadlink, web UI titles, remote-console banner, hostname field placeholder, and the upstream MCP bridge script. The MQTT topic prefix stays esp32_nat_router on purpose -- it is a functional broker identifier, not branding, and renaming it would break existing subscriptions. VERIFIED BY SCANNING THE STAGED PAYLOAD, NOT THE SOURCE, because that distinction is the whole bug: in docs/project/firmware/nomadlink.bin 'NomadLink' occurs 4 times and 'ESP32 NAT Router', 'ESP32_NAT_Router' and 'esp32-nat-router' occur 0 times. Page check in Chrome: element defined, manifest resolves, all four parts 200 (17664 / 3072 / 8192 / 1374544 bytes), old esp32_nat_router.bin now 404s, and the rendered page contains no occurrence of the old brand. The one remaining 'esp32_nat_router' string on the page is deliberate attribution in the provenance line ('Built from the vendored esp32_nat_router 2.4.17 source'). NOT TESTED: no device was flashed; Web Serial needs a real user click and a connected board. Flashing remains unverified.",
+      "requirement_ids": [
+        "REQ-001",
+        "REQ-020",
+        "REQ-022"
+      ],
+      "task_ids": [
+        "TASK-102"
+      ]
     }
   ]
 }

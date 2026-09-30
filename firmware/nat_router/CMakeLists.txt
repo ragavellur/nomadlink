@@ -4,7 +4,13 @@ cmake_minimum_required(VERSION 3.16)
 
 set(PROJECT_VER "2.4.17")
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(esp32_nat_router)
+
+# NomadLink divergence from upstream: the IDF project name is what idf.py names the
+# output binary after. Upstream calls this esp32_nat_router, which made the file the
+# web installer flashes read "esp32_nat_router.bin" — the wrong product on our own
+# installer. Renaming the project renames the artifact to nomadlink.bin. This is the
+# only identity change made to the base; behaviour is untouched.
+project(nomadlink)
 
 # Force esp_app_desc.c to recompile on every build so that
 # __DATE__/__TIME__ in the app descriptor stay current.

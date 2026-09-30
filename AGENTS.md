@@ -215,7 +215,8 @@ make validate   # tracker invariants (validator rules 1-13)
 make secrets    # secrets scan; ARGS=--history to scan all commits
 make render     # regenerate HTML from JSON after any JSON change
 make baseline   # compile every hardware regression sketch
-make product    # compile the product firmware (firmware/nat_router, ESP-IDF 5.5.x)
+make product       # compile the product firmware (firmware/nat_router, ESP-IDF 5.5.x)
+make stage-firmware  # build it AND stage it into docs/project/firmware/ for the web installer
 make flash SKETCH=<name>   # flash ONE sketch's app partition (0x10000)
 ```
 
@@ -246,6 +247,18 @@ firmware/baseline/tracker/secrets.h`.
 > `SSL_CERT_FILE=/Library/Frameworks/Python.framework/Versions/3.13/lib/python3.13/site-packages/certifi/cacert.pem`,
 > because the system python cannot verify TLS unaided. `build-product.sh` sets it
 > if unset.
+
+> **After any product firmware change that must reach users, run `make
+> stage-firmware`.** The installer serves `docs/project/firmware/*.bin`, and those
+> bytes are produced by that target. Renaming something in the source and committing
+> changes nothing for anyone who flashes the page — that is exactly how the AP SSID
+> stayed `ESP32_NAT_Router` while the repository said `NomadLink`. `make product`
+> warns when the staged payload is older than the sources it came from. The product
+> artifact is **`nomadlink.bin`**; the IDF project name in `CMakeLists.txt` is what
+> `idf.py` names it after, so that rename is load-bearing. Brand strings live in
+> `main/esp32_nat_router.c` (SSID), `include/router_config.h` (mDNS hostname) and
+> `components/http_server/pages/page_index.h` (UI titles). The MQTT topic prefix
+> stays `esp32_nat_router` on purpose — functional identifier, not branding.
 
 > **The Arduino sketch at `firmware/nomadlink` is historical evidence only.** It is
 > the prototype described in L-16 and is no longer the product. Do not extend it,

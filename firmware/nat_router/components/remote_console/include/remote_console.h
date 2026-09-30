@@ -1,6 +1,6 @@
 /**
  * @file remote_console.h
- * @brief Secure remote console for ESP32 NAT Router
+ * @brief Secure remote console for NomadLink
  *
  * Provides network-accessible CLI with password authentication.
  * Phase 1: Plain TCP (TLS to be added in Phase 2)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-ESP32 NAT Router MCP Bridge
+NomadLink MCP Bridge
 
-MCP server that controls an ESP32 NAT Router via its remote console (telnet/TCP).
+MCP server that controls an NomadLink via its remote console (telnet/TCP).
 Uses fastmcp and telnetlib3.
 
 Usage:
@@ -201,8 +201,8 @@ async def lifespan(server):
 # ---------------------------------------------------------------------------
 
 mcp = FastMCP(
-    "ESP32 NAT Router Bridge",
-    instructions="Control an ESP32 NAT Router via its remote console (telnet/TCP)",
+    "NomadLink Bridge",
+    instructions="Control an NomadLink via its remote console (telnet/TCP)",
     lifespan=lifespan,
 )
 
@@ -1164,7 +1164,7 @@ async def pcap_save(
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(description="ESP32 NAT Router MCP Bridge")
+    parser = argparse.ArgumentParser(description="NomadLink MCP Bridge")
     parser.add_argument(
         "--transport",
         choices=["stdio", "sse", "streamable-http"],

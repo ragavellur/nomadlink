@@ -2,9 +2,9 @@
 #include "router_config.h"
 
 #if CONFIG_ETH_UPLINK
-#define INDEX_TITLE "ESP32 NAT Router (LAN)"
+#define INDEX_TITLE "NomadLink (LAN)"
 #else
-#define INDEX_TITLE "ESP32 NAT Router"
+#define INDEX_TITLE "NomadLink"
 #endif
 
 /* Index Page - Chunked for streaming */

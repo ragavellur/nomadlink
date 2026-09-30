@@ -35,6 +35,19 @@ not alongside it.
 
 - Upstream: `https://github.com/martin-ger/esp32_nat_router`, version 2.4.17,
   commit `2fe7a4c`, vendored verbatim.
+- **NomadLink divergences from upstream (identity only, no behavioural change):**
+  - IDF project renamed `esp32_nat_router` → `nomadlink`, so the flashed artifact is
+    `nomadlink.bin` and not `esp32_nat_router.bin`. The output filename is derived
+    from the project name, so this is the only way to rename the artifact.
+  - Default AP SSID `ESP32_NAT_Router` → **`NomadLink`**; mDNS hostname
+    `esp32-nat-router` → `nomadlink`; web UI titles, the remote-console banner and
+    the hostname field placeholder rebranded.
+  - The MQTT topic prefix is **deliberately left as `esp32_nat_router`** — it is a
+    functional broker identifier, not branding, and renaming it would break existing
+    subscriptions.
+  - Verified by scanning the staged payload, not the source: in `nomadlink.bin`,
+    `NomadLink` occurs 4 times and `ESP32 NAT Router`, `ESP32_NAT_Router` and
+    `esp32-nat-router` occur 0 times.
 - Toolchain: **ESP-IDF 5.5.x**. Verified building for `esp32s3` at
   `esp32_nat_router.bin binary size 0x14f970` (1,374,576 bytes).
 - The base must compile **unmodified** before any feature is layered on. A build

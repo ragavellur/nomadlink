@@ -73,7 +73,7 @@ cd "$SKETCH_DIR" || exit 1
 # "$BUILD_DIR/sdkconfig" made this re-run `set-target` on every invocation, and
 # set-target full-cleans — so the build was wiped and then never re-run. Guard on
 # the app binary instead.
-app="$BUILD_DIR/esp32_nat_router.bin"
+app="$BUILD_DIR/nomadlink.bin"
 sdkcfg="$SKETCH_DIR/sdkconfig"
 
 if [[ ! -f "$sdkcfg" || ! -f "$app" ]]; then
@@ -105,6 +105,22 @@ if [[ ! -f "$app" ]]; then
 fi
 
 bytes="$(wc -c < "$app" | tr -d ' ')"
-size="$(echo "$(cat "$BUILD_DIR.build.log")" | grep -oE 'binary size 0x[0-9a-f]+' | tail -1)"
+size="$(grep -oE 'nomadlink\.bin binary size 0x[0-9a-f]+' "$BUILD_DIR.build.log" | tail -1 | grep -oE '0x[0-9a-f]+')"
 echo "  o nat_router ok (ESP-IDF $idf_ver, app $size / $bytes bytes)"
 exit 0
+# --- Staged-payload freshness check -------------------------------------------
+# The installer serves docs/project/firmware/*.bin. If those are older than the
+# sources they came from, the page flashes a stale image while the repository reads
+# as changed: the SSID stayed ESP32_NAT_Router after being renamed in the source,
+# because the payload was upstream's prebuilt binary. Detect that, don't trust it.
+DEST="$ROOT/docs/project/firmware"
+staged="$DEST/nomadlink.bin"
+if [[ -f "$staged" ]]; then
+  newest_src="$(find "$SKETCH_DIR/main" "$SKETCH_DIR/include" "$SKETCH_DIR/components" \
+                  "$SKETCH_DIR/sdkconfig.defaults" "$SKETCH_DIR/sdkconfig.defaults.esp32s3" \
+                  -type f -newer "$staged" 2>/dev/null | head -1)"
+  if [[ -n "$newest_src" ]]; then
+    echo "     ^ WARNING: the staged payload is older than ${newest_src#$ROOT/}"
+    echo "       Run 'make stage-firmware'. Until then the web installer flashes the OLD image."
+  fi
+fi

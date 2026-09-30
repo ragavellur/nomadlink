@@ -765,3 +765,45 @@ and exits non-zero on a broken tree; `firmware/nat_router/README.md` records
 upstream, version, commit and licence; ADR-009 states the base must compile
 *before* any feature is layered on, so a base that only builds after local edits
 is visible as a base that has been forked.
+
+### L-16 addendum — a correct page can serve a stale artifact (2026-10-01)
+
+The rebrand of L-16 immediately produced the same failure in a new place, which
+is why it is recorded here rather than as a separate lesson.
+
+The AP SSID was renamed `ESP32_NAT_Router` → `NomadLink` in the source, and the
+flashed device still broadcast the old name. Not a missed edit: **the installer
+was serving upstream's prebuilt binaries.** The page rendered, the manifest
+resolved, every part returned HTTP 200, every gate was green — and none of that
+touched the source, because those bytes were never built from this repository.
+
+**The rule: verify the artifact, not the intention.** For anything shipped to a
+user, a passing check on the *page* proves only that the page is correct. It says
+nothing about whether the payload is the thing you edited. The check that
+actually matters reads the staged bytes:
+
+```
+python3 - <<'PY'
+d = open('docs/project/firmware/nomadlink.bin','rb').read()
+for s in (b'NomadLink', b'ESP32 NAT Router'):
+    print(s, d.count(s))
+PY
+```
+
+Grepping the source would have said the rename worked. Grepping the artifact is
+the only check that could have caught this.
+
+**What now catches it.** `make stage-firmware` owns the path from source to the
+bytes a user flashes, so it cannot be forgotten silently; `make product` warns
+when the staged payload is older than the sources it came from, naming the file;
+and `stage-firmware.sh` asserts the four flash offsets against
+`build_esp32s3/flash_args` before copying, because a wrong offset flashes cleanly
+and then does not boot — the failure mode that "the installer worked" would not
+have caught.
+
+Two habits generalise. **Name the artifact after your product**, which here meant
+renaming the IDF project (the output filename derives from it) rather than
+renaming a file after the build. And **let the brand be wrong everywhere at once
+or nowhere** — the SSID, the artifact, the UI title, the console banner and the
+provenance line were fixed together, because a partial rebrand is harder to spot
+than none.

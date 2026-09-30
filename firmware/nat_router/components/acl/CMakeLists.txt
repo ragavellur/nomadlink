@@ -1,6 +1,6 @@
 # ACL (Access Control List) Firewall Component
 #
-# Provides packet filtering for the ESP32 NAT Router.
+# Provides packet filtering for NomadLink.
 
 idf_component_register(
     SRCS "acl.c" "acl_nvs.c"

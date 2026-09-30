@@ -1,7 +1,7 @@
 {
   "product": "NomadLink One",
-  "version": "0.1.0-base",
-  "status": "BASE ONLY - upstream router unmodified, NomadLink 4G/GNSS/camera features NOT yet present",
+  "version": "0.1.0-base.1",
+  "status": "BASE ONLY, built from vendored source. A7670E 4G, GNSS, camera and SD features NOT yet present.",
   "summary": "Flash the ESP32-S3 router firmware directly from the browser. No command line or Python installation required.",
   "chip": "ESP32-S3",
   "upstream_project": "esp32_nat_router",
@@ -28,12 +28,12 @@
       "size": 8192
     },
     {
-      "file": "firmware/esp32_nat_router.bin",
+      "file": "firmware/nomadlink.bin",
       "offset": 131072,
-      "size": 1370000
+      "size": 1374544
     }
   ],
-  "base_note": "These binaries are the unmodified upstream esp32_nat_router 2.4.17 ESP32-S3 build, already verified working on this board. The A7670E 4G, GNSS, camera and SD features are not yet in this image.",
+  "base_note": "Built from the vendored esp32_nat_router 2.4.17 source in this repository, not upstream's prebuilt image. AP SSID broadcasts as NomadLink and the mDNS hostname is nomadlink.local. The A7670E 4G, GNSS, camera and SD features are not yet in this image.",
   "prereq_note": "Recommended: Chrome, Edge or Opera. Close all other serial monitors first. Browser flashing writes bootloader, partition table, otadata and app.",
   "verification": {
     "web_installer_mount": "PASS - esp-web-install-button custom element defined, manifest attribute set, button visible (Chrome)",
@@ -42,8 +42,18 @@
     "on_device_runtime": "NOT TESTED from this repository - upstream and the project owner report this image working on this board",
     "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app binary size 0x14f970 / 1374576 bytes)",
     "compile_gate_rejects_broken_source": "PASS - invalid C injected into main/portmap.c, gate exited 1 naming file and line; reverted and tree built again",
-    "binary_served_vs_local_build": "DIFFERENT ARTIFACTS - served binary is upstream's prebuilt (1370000 bytes); local rebuild from vendored source is 1374576 bytes. Toolchain drift, functionally the same base. Swap to the local build when NomadLink features land."
+    "served_binary_is_local_build": "PASS - payload staged by scripts/project-tracker/stage-firmware.sh from build_esp32s3, offsets asserted against flash_args (0x0/0x8000/0xf000/0x20000)",
+    "branding_in_flashed_bytes": "PASS - in nomadlink.bin: 'NomadLink' 4 occurrences; 'ESP32 NAT Router' 0; 'ESP32_NAT_Router' 0; 'esp32-nat-router' 0. Checked by scanning the staged payload, not the source."
   },
   "toolchain": "ESP-IDF 5.5.x (installed at ~/esp/esp-idf-5.5.4). The base does NOT build on IDF 6.x: main requires component 'json', which moved to the component manager.",
-  "compile_gate": "make product / make check -> scripts/project-tracker/build-product.sh"
+  "compile_gate": "make product / make check -> scripts/project-tracker/build-product.sh",
+  "stage_command": "make stage-firmware  (rebuilds and re-stages the served payload; offsets verified against build_esp32s3/flash_args)",
+  "branding": {
+    "product_name": "NomadLink",
+    "ap_ssid_default": "NomadLink",
+    "mdns_hostname": "nomadlink",
+    "firmware_artifact": "nomadlink.bin (IDF project renamed from upstream's esp32_nat_router)",
+    "console_banner": "NomadLink - Remote Console",
+    "note": "The MQTT topic prefix stays esp32_nat_router: it is a functional broker identifier, not branding, and renaming it would break existing subscriptions."
+  }
 }

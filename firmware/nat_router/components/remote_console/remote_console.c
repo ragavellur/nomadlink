@@ -59,7 +59,7 @@ static const char *TAG = "remote_console";
 static const char *RC_BANNER =
     "\r\n"
     "============================================\r\n"
-    "  ESP32 NAT Router - Remote Console\r\n"
+    "  NomadLink - Remote Console\r\n"
     "  WARNING: Plain TCP (not encrypted)\r\n"
     "============================================\r\n"
     "\r\n";

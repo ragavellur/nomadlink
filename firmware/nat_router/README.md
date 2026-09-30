@@ -55,6 +55,29 @@ the old Arduino sketch). Do not treat this directory as gated until
 byte-identical to `firmware_esp32s3/` upstream, already confirmed working on this
 board. They are served as-is; NomadLink features are **not** in them yet.
 
+## NomadLink divergences from upstream (identity only)
+
+Applied so the product and its artifact carry the NomadLink name. No behavioural change:
+
+| Upstream | NomadLink | Where |
+|---|---|---|
+| project `esp32_nat_router` → `esp32_nat_router.bin` | project `nomadlink` → **`nomadlink.bin`** | `CMakeLists.txt` |
+| AP SSID `ESP32_NAT_Router` | **`NomadLink`** | `main/esp32_nat_router.c` |
+| hostname `esp32-nat-router` | **`nomadlink`** | `include/router_config.h` |
+| UI titles, console banner, hostname placeholder | `NomadLink` | `components/http_server/pages/page_index.h`, `components/remote_console/` |
+| MQTT topic prefix `esp32_nat_router` | **unchanged** | functional broker identifier; renaming breaks subscriptions |
+
+The IDF project name is what `idf.py` names the output binary after, so renaming the
+project is the only way to rename `nomadlink.bin`.
+
+Rebrand, then restage — or the installer keeps flashing the old image:
+
+```bash
+make stage-firmware
+```
+
+`make product` warns when the staged payload is older than the sources it came from.
+
 ## NomadLink changes (to be added here, not alongside)
 
 - A7670E 4G PPP netif as an additional uplink, over UART GPIO17/18
