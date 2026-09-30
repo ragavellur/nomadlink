@@ -33,10 +33,42 @@ loads"* — or paste the exact error. One sentence. No summary of the code, no
 recap of what changed, no listing of gates. The user is tracking a flash, not
 reading a report. If something fails, give the **exact error text** and stop.
 
+If you have not completed steps 1–5 above, you do not have an instruction to
+give. You have unfinished work. Finish it first. Reporting "done" or handing
+over a URL while `git log @{u}..HEAD` is non-empty is a defect, however
+correct the local build is.
+
 **Never** claim this works before step 6 has been done by the user. It has not
 been verified on hardware yet — see §10.
 
 ### The one rule behind this section
+
+**Never tell the user to go and test until the change is pushed and you have
+verified it is live.** If you say "open the page and check the SSID" while the
+commits are still local, you have sent the user to verify nothing and made them
+think the work is broken. The sequence is not optional and not parallel:
+
+| Step | Command | Proof it worked |
+|---|---|---|
+| 1. Stage firmware | `make stage-firmware` | prints the four staged sizes |
+| 2. Render pages | `make render` | prints "Rendered 8 dashboard pages" |
+| 3. Commit | `git commit` | non-empty SHA |
+| 4. **Push** | `git push origin main` | `main -> main`, no error |
+| 5. **Verify live** | `curl -s -o /dev/null -w '%{http_code}'` on the real URL | `200` and the expected size |
+| 6. **Then** ask the user to test | — | — |
+
+A local commit is not a delivered change. `git log @{u}..HEAD` must be empty
+before you ask anyone to test. If it is not empty, you have not shipped — push
+first, then verify with `curl` against `https://ragavellur.github.io/nomadlink/`,
+and only then give the user a URL. A local `http.server` proves the page is
+well-formed; it proves **nothing** about what users will see.
+
+This has already happened twice. The installer was pointed at a prebuilt binary
+no source edit could reach, and then 20 commits went un-pushed so the user saw a
+page from days earlier and reported the button was missing. Both times the
+defect was in the delivery, not the code. See L-16 and L-17.
+
+### The other rule behind this section
 
 Changes in the repository do **not** reach the device or the web installer by
 themselves. Two separate steps, both required:
@@ -363,7 +395,7 @@ pattern to `secrets_scan.py`.
   mine." Record the mistake you actually made, not a sanitised version.
 - **Cross-link** new lessons to the `MISTAKES MADE (do not repeat)` and
   `THE THREE CRITICAL THINGS` sections so the whole history stays coherent.
-- Current lessons run `L-08` … `L-16` (see the file). This is the fastest
+- Current lessons run `L-08` … `L-17` (see the file). This is the fastest
   defence against the traps below.
 
 ### The traps, consolidated (do not repeat)
@@ -384,6 +416,10 @@ pattern to `secrets_scan.py`.
 - **`git check-ignore` before you commit a binary.** `*.bin` is ignored
   repo-wide, which silently excluded the web installer's firmware parts; a
   correct local page is not proof the published page works.
+- **Never give the user an instruction until the change is pushed and verified
+  live.** `git log @{u}..HEAD` must be empty and `curl` the public URL, or you
+  have sent them to verify nothing (L-17). A green local build and a local
+  `http.server` say nothing about what users see. Pushing is your step.
 - **A compile gate must check the exit code, and must be proven to fail.**
   One reported `ok` while building nothing, because it grepped the log and
   ran `idf.py` from the wrong directory (L-16).

@@ -807,3 +807,52 @@ renaming a file after the build. And **let the brand be wrong everywhere at once
 or nowhere** — the SSID, the artifact, the UI title, the console banner and the
 provenance line were fixed together, because a partial rebrand is harder to spot
 than none.
+
+## L-17 — Never hand over an instruction until the change is pushed and verified live (2026-10-01)
+
+The user opened `https://ragavellur.github.io/nomadlink/project/index.html`,
+found no **Connect & Install** button, and correctly concluded the work was not
+done. It wasn't. **20 commits had never been pushed.** `git log @{u}..HEAD` was
+non-empty the whole time, going back to `981e635`, and the published site was
+days stale.
+
+**The wrong turn:** I finished the work, committed it, wrote a confident
+"push and try the page whenever you're ready", and treated pushing as the user's
+job. Every local signal was green — `make check` passed, the button mounted in
+Chrome, all four binaries returned 200 from a local `http.server` — so the
+summary said the work was done. None of those signals can observe the
+difference between a local file and a published one. I had a remote configured
+and never pushed to it.
+
+**The general rule: a local commit is not a delivered change.** Nothing reaches
+the device, the web installer, or the user until it is on `origin/main`. The
+sequence is not optional and not parallel:
+
+| Step | Command | Proof |
+|---|---|---|
+| 1 | `make stage-firmware` | four staged sizes printed |
+| 2 | `make render` | "Rendered 8 dashboard pages" |
+| 3 | `git commit` | non-empty SHA |
+| 4 | `git push origin main` | `main -> main`, no error |
+| 5 | `curl -s -o /dev/null -w '%{http_code}'` the real URL | `200` and the expected size |
+| 6 | **then** ask the user to test | — |
+
+**Do not hand over a URL before step 5.** If `git log @{u}..HEAD` is non-empty
+you have unfinished work, not a deliverable — no matter how good the local build
+is. Say "I have not pushed yet", finish it, then give the instruction. The
+user is tracking a flash, not reading a report; every minute they spend on a
+stale page is a minute lost, and they reasonably conclude the feature is
+missing rather than that the delivery is.
+
+This is L-16 in the delivery pipeline rather than the code: the installer served
+a *prebuilt* binary no source edit could reach, and then served a *stale
+repository* no local verification could reach. **A check that cannot fail on the
+real artifact is not evidence about the real artifact.** A local `http.server`
+proves the HTML is well-formed and the paths are right; it proves nothing about
+what users will see. The only checks that do are `git log @{u}..HEAD` (is it
+pushed) and `curl` against the public URL (is it served).
+
+**What now catches it:** `AGENTS.md` §0 carries the six-step table and states that
+no instruction may be given while the unpushed list is non-empty. Push is an
+agent step, not a user step, and "it works locally" is never a reason to stop
+short of step 5.
