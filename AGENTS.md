@@ -11,6 +11,49 @@ must I never do again."
 
 ---
 
+## 0. DO THIS NEXT
+
+**One task. Flash the base firmware and confirm the SSID.**
+
+1. `git push`
+2. Open `https://ragavellur.github.io/nomadlink/project/index.html`
+3. Plug the board in. Chrome, Edge or Opera. **Close every other serial monitor** —
+   `screen`, `idf.py monitor`, Arduino IDE — they hold the port and the flash fails.
+4. Press **Connect & Install**, pick the ESP32-S3 port, approve the prompt.
+5. Wait for it to finish. The board reboots.
+6. Join the WiFi network named **`NomadLink`** and confirm that is the name on
+   your phone. Open the console at `http://192.168.4.1` and confirm it loads.
+
+**Then report the result and stop.** Do not start a feature until this passes.
+
+### How to answer
+
+State only what you saw, for example: *"SSID is NomadLink, console at 192.168.4.1
+loads"* — or paste the exact error. One sentence. No summary of the code, no
+recap of what changed, no listing of gates. The user is tracking a flash, not
+reading a report. If something fails, give the **exact error text** and stop.
+
+**Never** claim this works before step 6 has been done by the user. It has not
+been verified on hardware yet — see §10.
+
+### The one rule behind this section
+
+Changes in the repository do **not** reach the device or the web installer by
+themselves. Two separate steps, both required:
+
+| To change | You must run |
+|---|---|
+| Firmware behaviour (code) | `make stage-firmware` |
+| The web installer page (JSON) | `make render` |
+
+Skip either and the user flashes the old image while the source reads as changed.
+That already happened once: the SSID stayed `ESP32_NAT_Router` after it had been
+renamed, because the installer was serving a prebuilt binary that no source edit
+could reach. If a user reports that a change "didn't take", check which of these
+two steps was skipped before looking at the code. See L-16.
+
+---
+
 ## 1. What this project is
 
 NomadLink One: an ESP32-S3 + SIMCom A7670E travel gateway — dual-WAN failover,
@@ -22,6 +65,10 @@ physically verified; the product software has not been started. The dominant
 risk in this project is **not functional bugs — it is false confidence**: a
 capability reported as working, or as broken, when the evidence did not support
 it. Every rule below exists to prevent that.
+
+> **Where things stand:** the base firmware is in place and compile-gated, but it
+> has **never been flashed from this repository**. Nothing else may start until the
+> flash in §0 is confirmed by the user.
 
 Canonical sources (read these, don't rely on memory):
 
