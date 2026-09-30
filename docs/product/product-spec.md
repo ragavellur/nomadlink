@@ -58,7 +58,7 @@ foundation everything else is built on.
 
 | Capability | Command / method | Verified result |
 |---|---|---|
-| GNSS position | `AT+CGNSSPWR=1`, `AT+CGNSSPORTSWITCH=1,1`, `AT+CGNSSTST=1` | `18.480776, 73.897998` in 69 s cold start, 17 GPS + 10 GLONASS |
+| GNSS position | `AT+CGNSSPWR=1`, `AT+CGNSSPORTSWITCH=0,1`, `AT+CGNSSTST=1` | `18.480816, 73.898640` LOCK t+130s (2026-09-30); `18.480776, 73.897998` in 69 s (2026-09-29); 17 GPS + 10 GLONASS |
 | Cellular LBS fallback | `AT+CLBS=1,1` | `+CLBS: 0,18.481703,73.897415,550` |
 | LTE registration | `AT+CEREG?` | `0,1` on Airtel, MCC 40490 MNC 90 |
 | Data bearer | `AT+CGACT=1,1`, `AT+CGPADDR=1` | `+CGPADDR: 1,100.90.93.199` |

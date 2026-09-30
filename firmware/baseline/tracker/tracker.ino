@@ -4,9 +4,11 @@
  * On firmware A011B04A7670M7_F, CIPSTART returns ERROR but CIPOPEN works.
  *
  * KNOWN DEFECTS (see docs/project/bugs.json):
- *   BUG-003  The GNSS wait loop uses an iteration counter, not a millis()
- *            deadline, so it exits after seconds instead of the intended wait.
- *            (TASK-301)
+ *   BUG-003  FIXED IN TASK-301: the GNSS wait loop used `t += 1000` per
+ *            iteration with delay(10), so the "15 minute" wait exited after
+ *            900 * 10ms = ~9s. Replaced with a real millis() deadline
+ *            (FIX_WINDOW_MS) and an ADR-006 quality gate: a fix is only
+ *            reported when gps.location.isValid() AND sats > 0.
  *   BUG-002  FIXED IN TASK-405: the AT+CIPSEND '>' prompt is a bare byte and the
  *            broker CONNACK is a fixed 4-byte frame (20 02 00 <rc>) with no
  *            final newline. The old line-based reader blocked forever on both.
@@ -26,6 +28,10 @@
 #define MODEM_PWR_PIN 21
 #define MODEM_PWRKEY  42
 #define MODEM_BAUD    115200
+
+/* GNSS cold-start search window. 15 minutes of wall-clock time (BUG-003 used
+ * an iteration counter instead of this, exiting after ~9 seconds). */
+#define FIX_WINDOW_MS 900000UL
 
 #ifndef MQTT_HOST
 #error "secrets.h must define MQTT_HOST, MQTT_PORT, MQTT_USER, MQTT_PASS, MQTT_TOPIC, CLIENT_ID"
@@ -330,19 +336,27 @@ void setup() {
   Serial0.println("MARK-STREAMING"); Serial0.flush();
 
   bool haveFix = false;
-  for (unsigned long t = 0; t < 900000UL && !haveFix; t += 1000) {
+  /* BUG-003: the old loop did t += 1000 per iteration with delay(10), so the
+   * "15 minute" wait actually exited after ~9s (900 * 10ms). Real deadline. */
+  unsigned long deadline = millis() + FIX_WINDOW_MS;
+  unsigned long nextReport = millis() + 20000;
+  while (millis() < deadline && !haveFix) {
     while (ss.available()) gps.encode(ss.read());
-    if (gps.location.isValid()) {
+    /* ADR-006 gate: only report a fix when quality is usable AND at least one
+     * satellite is locked. TinyGPS++ flags a location valid on a locked fix;
+     * satsCount must be a real lock, never 0 with a bogus lat/lon. */
+    if (gps.location.isValid() && gps.satellites.value() > 0) {
       char payload[192];
       snprintf(payload, sizeof(payload),
-               "{\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d,\"hdop\":%.1f,\"fix_age_s\":%lu}",
+               "{\"src\":\"GNSS\",\"lat\":%.6f,\"lon\":%.6f,\"sats\":%d,\"hdop\":%.1f,\"fix_age_s\":%lu}",
                gps.location.lat(), gps.location.lng(),
                (int)gps.satellites.value(), gps.hdop.hdop(),
                (unsigned long)(millis() / 1000));
       Serial0.print("FIX payload="); Serial0.println(payload); Serial0.flush();
       publish(payload);
       haveFix = true;
-    } else if (t % 20000 == 0) {
+    } else if (millis() >= nextReport) {
+      nextReport += 20000;
       Serial0.print("searching satsInView=");
       Serial0.print(gps.satellites.value());
       Serial0.print(" hdop=");

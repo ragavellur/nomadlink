@@ -137,7 +137,7 @@
       "description": "Communicate with A7670E GNSS via AT commands. Parse raw NMEA to extract latitude, longitude, altitude, speed, fix status, satellite count.",
       "priority": "P0",
       "hardware_verified": true,
-      "verification_note": "VERIFIED. Cold-start fix 18.480776, 73.897998 in 69 seconds uninterrupted, 17 GPS + 10 GLONASS satellites, C/N0 up to 73. Requires PWRKEY GPIO42 power-on pulse and CGNSSPORTSWITCH=1,1. See ADR-002 and LESSONS_LEARNED.md.",
+      "verification_note": "VERIFIED. Cold-start fix 18.480816, 73.898640 (LOCK t+130s, 4 sats, hdop 7.3, 2026-09-30). Prior 2026-09-29: 18.480776, 73.897998 in 69 s, 17 GPS + 10 GLONASS, C/N0 up to 73. Requires PWRKEY GPIO42 power-on pulse and CGNSSPORTSWITCH=0,1 (1,1 errors on rev A7670M7_V1.11.1). See ADR-002, ADR-006 and LESSONS_LEARNED.md.",
       "status": "VERIFIED",
       "spec_defect": "PRD FR-3.1 names AT+CGNSINF, which does not exist on this module. AT+CGPSINFO is valid. Corrected per ADR-002.",
       "task_ids": [

@@ -63,6 +63,13 @@ SentMessage("AT+CGNSSTST=1");            // start the NMEA pump
 delay(500);
 ```
 
+**Update 2026-09-30 (unit rev A7670M7_V1.11.1):** on this board/firmware the
+observed behaviour is that `AT+CGNSSPORTSWITCH=1,1` returns `ERROR` and no NMEA
+reaches the UART, while `AT+CGNSSPORTSWITCH=0,1` returns `OK` and streams NMEA,
+producing a real lock (t+130s, 4 sats, hdop 7.3). `gnss_hold.ino` now uses
+`0,1`. If `1,1` is again seen working on another unit, capture `AT+CGNSSPWR?` /
+firmware rev at boot before trusting either form.
+
 ### 3. Cellular LBS fallback — `AT+CLBS=1,1`, and the CID is NOT optional
 
 I spent a long time telling the user that LBS did not work on this module. **It

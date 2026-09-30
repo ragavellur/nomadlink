@@ -10,7 +10,7 @@ Two independent position sources are proven on this hardware:
 
 | Source | Command | Result | Latency | Accuracy |
 |---|---|---|---|---|
-| GNSS | `AT+CGNSSPWR=1`, `AT+CGNSSPORTSWITCH=1,1`, `AT+CGNSSTST=1` | `18.480776, 73.897998` | 69 s cold start, unbounded warm | Metres |
+| GNSS | `AT+CGNSSPWR=1`, `AT+CGNSSPORTSWITCH=0,1`, `AT+CGNSSTST=1` | `18.480816, 73.898640` | 130 s cold start (2026-09-30); 69 s (2026-09-29) | Metres |
 | Cellular LBS | `AT+CLBS=1,1` | `+CLBS: 0,18.481703,73.897415,550` | Seconds | 550 m radius |
 
 The two agree to well within the LBS accuracy radius, which is the cross-check
