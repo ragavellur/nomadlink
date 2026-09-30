@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-30T12:26:07Z",
+  "updated_at": "2026-09-30T18:40:00Z",
   "legend": {
     "states": [
       "BACKLOG",
@@ -241,11 +241,11 @@
         "TASK-001",
         "TASK-019"
       ],
-      "description": "Bring up SoftAP with internal DHCP. NomadLink-XXXX SSID derived from the efuse MAC, 192.168.4.1 gateway, 192.168.4.2-254 DHCP pool, and the gateway also handed to clients as the DNS server so that client name resolution traverses the NAT in TASK-109. Verified up and broadcasting on the bench; awaiting a real client lease to close.",
+      "description": "Bring up SoftAP with internal DHCP. NomadLink-XXXX SSID derived from the efuse MAC, 192.168.4.1 gateway, and an internal DHCP pool. Verified up and broadcasting on the bench; awaiting a real client lease to close. TWO AMENDMENTS, both forced by measurement, both recorded per ADR-002 rather than quietly dropped: (1) the pool is 192.168.4.2-12, not .2-254, because this core is built with CONFIG_LWIP_DHCPS_MAX_STATION_NUM=8; widening it is a core rebuild, not a config change. (2) the captive portal is REPLACED by direct-IP access, because lwIP's DNS server is compiled out of the Arduino core so clients are handed public resolvers and an OS probe reaches the real internet with no interception point. The console is served at http://192.168.4.1 and http://nomadlink.local. See ADR-007.",
       "acceptance_criteria": [
         "A client associates and receives a 192.168.4.x lease",
         "SSID suffix is derived from MAC",
-        "Captive portal returns an HTTP 302 on the probe path"
+        "The admin page is reachable at http://192.168.4.1 and at http://nomadlink.local (replaces the captive-portal 302, which this firmware cannot produce -- see ADR-007)"
       ],
       "definition_of_done": [
         "Code implemented",
@@ -267,7 +267,7 @@
         ],
         "verified_by": "",
         "verified_at": "",
-        "reason": "SoftAP verified up and stable. Not yet closed: needs a real client to associate and take a 192.168.4.x lease, which is the first acceptance criterion."
+        "reason": "SoftAP verified up and stable, and the admin page is implemented and compile-gated. Not yet closed: needs a real client to associate and take a 192.168.4.x lease, and the page to be loaded on-device. A browser harness rendered the page from a mock /api/status on 2026-09-30, which is a pre-flight on the HTML only and is NOT device evidence."
       },
       "git": {
         "commit_sha": "ad5c900",
@@ -1491,7 +1491,7 @@
       "dependencies": [
         "TASK-019"
       ],
-      "description": "Enforce HTTP Basic Auth on the admin portal, ensure no secret is ever returned in a page or log, and adopt the NVS store so no secret lives in source.",
+      "description": "Enforce HTTP Basic Auth on the admin portal, ensure no secret is ever returned in a page or log, and adopt the NVS store so no secret lives in source. DEFERRED BY DECISION, NOT SKIPPED: ADR-007 (2026-09-30) shipped the console without auth to unblock TASK-801/TASK-101, on the explicit basis that it is a TEST SURFACE, not a production one. It is only reachable over the device's own SoftAP. The console states this in its own Network and Telephony sections. This task MUST close before the console is treated as a shipped admin surface.",
       "acceptance_criteria": [
         "Implementation satisfies the acceptance criteria of REQ-022",
         "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
@@ -1515,10 +1515,12 @@
       ],
       "verification": {
         "status": "NOT_VERIFIED",
-        "evidence": [],
+        "evidence": [
+          "2026-09-30, ADR-007: deferral recorded as a decision with a named consequence, not as an omission"
+        ],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "Deliberately deferred by ADR-007 so the network and dashboard work could proceed. Blocking for production use, not blocking for bench testing."
       },
       "git": {
         "commit_sha": "",
@@ -2196,15 +2198,20 @@
         "REQ-020"
       ],
       "priority": "P0",
-      "status": "BACKLOG",
+      "status": "IN_PROGRESS",
       "dependencies": [
         "TASK-019"
       ],
       "description": "Async web server with the seven-section navigation: Dashboard, Network, Camera, Location, Cloud, SMS, Telephony.",
       "acceptance_criteria": [
-        "Implementation satisfies the acceptance criteria of REQ-020",
-        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
-        "Documentation updated and commit SHA recorded"
+        "Async web server (ESPAsyncWebServer + AsyncTCP) serves the page, started only after the SoftAP is up",
+        "Seven-section navigation present: Dashboard, Network, Camera, Location, Cloud, SMS, Telephony",
+        "Exactly one section visible at a time; the chosen tab survives a page reload",
+        "Page is fully self-contained: zero external assets (no CDN, web font or remote CSS/JS)",
+        "mDNS name nomadlink.local resolves, or the UI says it is unavailable",
+        "Any unknown path serves the console rather than a 404",
+        "The web task never issues an AT command (UART ownership)",
+        "Sections with no measurement say NOT INTEGRATED and name the owning TASK; no placeholder number is shown"
       ],
       "definition_of_done": [
         "Code implemented and formatted",
@@ -2227,7 +2234,7 @@
         "evidence": [],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "Implemented and compile-gated. Verified in a browser on 2026-09-30 against a mock /api/status: all 7 tabs switch, one section visible at a time, tab persists across reload, zero external assets, and the degraded paths (never-sampled CSQ, PPP down, client with no address) all render. NOT yet verified on hardware: the device has never served a page, so TEST-801 stays NOT_RUN."
       },
       "git": {
         "commit_sha": "",
@@ -2235,7 +2242,7 @@
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
+        "started_at": "2026-09-30",
         "completed_at": "",
         "verified_at": "",
         "last_updated_at": "2026-09-29T00:00:00Z"
@@ -2251,15 +2258,21 @@
         "REQ-020"
       ],
       "priority": "P1",
-      "status": "BACKLOG",
+      "status": "IN_PROGRESS",
       "dependencies": [
         "TASK-801"
       ],
       "description": "Landing page showing WAN mode, Wi-Fi signal, 4G RSSI, operator, fix status, lat/lon, free RAM, PSRAM usage and minimum-ever-free-heap.",
       "acceptance_criteria": [
-        "Implementation satisfies the acceptance criteria of REQ-020",
-        "Hardware behaviour is demonstrated on NomadLink One and captured as evidence",
-        "Documentation updated and commit SHA recorded"
+        "Dashboard shows SoftAP state: SSID, AP address, mDNS, DHCP pool, resolvers actually sent to clients",
+        "Dashboard shows cellular state: PPP link, local/peer addresses, CSQ, operator, and the AGE of the CSQ sample",
+        "Dashboard shows routing: NAPT state, PPP byte counters, forwarded-packet counter, default route",
+        "Dashboard shows system: uptime, free heap, min-ever-free heap, PSRAM free/total, flash used/total",
+        "Associated-client table shows real MAC and IP pairs with a first-seen duration",
+        "A client that has associated but holds no lease shows 'no address yet', never a borrowed address",
+        "Values refresh without a manual page reload",
+        "If the API becomes unreachable the UI says so and keeps the last known values on screen",
+        "No section displays a number that has not been measured (no position while BUG-009/BUG-010 are open)"
       ],
       "definition_of_done": [
         "Code implemented and formatted",
@@ -2282,7 +2295,7 @@
         "evidence": [],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "Implemented and compile-gated. Browser pre-flight on 2026-09-30 with a mock /api/status confirmed every field above renders, that the never-sampled CSQ path reads 'not sampled', and that killing the API produces 'disconnected - retrying' while retaining the last data. NOT hardware evidence; TEST-801 stays NOT_RUN."
       },
       "git": {
         "commit_sha": "",
@@ -2290,7 +2303,7 @@
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
+        "started_at": "2026-09-30",
         "completed_at": "",
         "verified_at": "",
         "last_updated_at": "2026-09-29T00:00:00Z"

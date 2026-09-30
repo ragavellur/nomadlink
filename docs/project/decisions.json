@@ -58,7 +58,7 @@
       "id": "DEC-005",
       "adr_id": "ADR-005",
       "title": "Firmware framework selection",
-      "status": "Proposed",
+      "status": "Accepted",
       "date": "2026-09-29",
       "file": "docs/decisions/ADR-005-firmware-framework-selection.md",
       "relates_to": [],
@@ -71,7 +71,7 @@
         "TASK-303",
         "TASK-405"
       ],
-      "summary": "- **Status:** PROPOSED \u2014 blocks TASK-101, TASK-103, TASK-104"
+      "summary": "- **Status:** ACCEPTED \u2014 Option B, Arduino-ESP32 3.x as the product framework"
     },
     {
       "id": "DEC-006",
@@ -83,11 +83,26 @@
       "relates_to": [],
       "blocks": [],
       "summary": "- **Status:** Proposed"
+    },
+    {
+      "id": "DEC-007",
+      "adr_id": "ADR-007",
+      "title": "Admin console: async web server, direct-IP access, deferred auth",
+      "status": "Accepted",
+      "date": "2026-09-30",
+      "file": "docs/decisions/ADR-007-admin-console-web-stack.md",
+      "relates_to": [
+        "ADR-005"
+      ],
+      "blocks": [
+        "TASK-404"
+      ],
+      "summary": "- **Status:** ACCEPTED \u2014 ESPAsyncWebServer over the core WebServer.h"
     }
   ],
   "counts": {
-    "Accepted": 4,
-    "Proposed": 2,
+    "Accepted": 6,
+    "Proposed": 1,
     "Superseded": 0,
     "Rejected": 0
   }

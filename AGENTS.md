@@ -200,11 +200,12 @@ never reuse its output as proof about the next action.
 ## 6. Commands (this is the gate loop)
 
 ```bash
-make check      # validate + secrets + render + baseline build. Must pass before ANY commit.
+make check      # validate + secrets + render + baseline build + product build. Must pass before ANY commit.
 make validate   # tracker invariants (validator rules 1-13)
 make secrets    # secrets scan; ARGS=--history to scan all commits
 make render     # regenerate HTML from JSON after any JSON change
 make baseline   # compile every hardware regression sketch
+make product    # compile the product firmware sketch (firmware/nomadlink)
 make flash SKETCH=<name>   # flash ONE sketch's app partition (0x10000)
 ```
 
@@ -212,6 +213,14 @@ Flash port (CH343): `/dev/cu.wchusbserial58750034621`. Console/observe port
 (CH9102): `/dev/cu.usbmodem58750034621`. Copy the secrets template first if a
 sketch needs it: `cp firmware/baseline/tracker/secrets.h.example
 firmware/baseline/tracker/secrets.h`.
+
+> **The product sketch is compile-gated too, since 2026-09-30.** `build-baseline.sh`
+> loops `firmware/baseline/*` only, so `firmware/nomadlink` — 1,300 lines of SoftAP
+> + PPP + NAPT + console — previously had **no compile gate at all** and could rot
+> silently. `scripts/project-tracker/build-product.sh` / `make product` closes that
+> hole and is part of `make check`. If you add a second product sketch, add it
+> there rather than assuming it is covered.
+
 
 ---
 
@@ -264,7 +273,7 @@ pattern to `secrets_scan.py`.
   mine." Record the mistake you actually made, not a sanitised version.
 - **Cross-link** new lessons to the `MISTAKES MADE (do not repeat)` and
   `THE THREE CRITICAL THINGS` sections so the whole history stays coherent.
-- Current lessons run `L-08` … `L-13` (see the file). This is the fastest
+- Current lessons run `L-08` … `L-14` (see the file). This is the fastest
   defence against the traps below.
 
 ### The traps, consolidated (do not repeat)
@@ -279,6 +288,18 @@ pattern to `secrets_scan.py`.
   path broken" got written up as settled).
 - Never hand-roll NMEA field indexing (GGA lat/lon are two fields each); use
   TinyGPS++.
+- **A compile error names a symbol, not a library.** Before writing a dependency
+  incompatibility into a doc or an ADR, grep the library headers *and* the core
+  headers to see which one owns the missing symbol. Four times on 2026-09-30 a
+  "problem" was a function that never existed in core 3.3.11
+  (`ESP.getChipId`, `softAPgetStationInfo`, `getMinEverFreeHeap`, and
+  `esp_wifi_ap_get_sta_list_with_ip` needing its own include). One of those
+  would have permanently downgraded the web stack (L-14).
+- **The web console must never touch the UART, and must never show an
+  unmeasured number.** Modem telemetry is sampled in the one safe window before
+  the PPP dial, then cached, and the UI shows the *age* of the sample. A section
+  with no data says NOT INTEGRATED and names its owning TASK. A client with no
+  lease shows `no address yet` — never a borrowed address. See ADR-007.
 - **When something that worked stops working, reproduce the old flow
   byte-for-byte on the committed control before touching firmware** (L-13). A
   true cold power-cycle (long PWRKEY off/on) is not an ESP32 reset. Prove the

@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-30T12:26:07Z",
+  "updated_at": "2026-09-30T18:40:00Z",
   "note": "Every test records what was expected, what was observed, and the evidence. A PASS without evidence is rejected by validate.py.",
   "tests": [
     {
@@ -131,7 +131,7 @@
         "Compare the result against the GNSS fix"
       ],
       "expected_result": "+CLBS: 0,<lon>,<lat>,<accuracy> with the position within the reported accuracy radius of the GNSS fix",
-      "actual_result": "09-29: +CLBS: 0,18.481703,73.897415,550 (PASS, corroborated by GNSS 18.480776, 73.897998). 09-30: +CLBS: 10 in all tested modes (mode1-cid1, mode9-cid1, mode2-cid1, default-CID, mode4) with true cold modem power-cycle and identical 09-29 byte sequence. Modem data plane healthy (NETOPEN OK, IPADDR valid, CIPOPEN to mqtt.easyiothings.com:80 and lbs-simcom.com:3002 OK) — ret_code 10 = LBS application close (carrier/SIMCom LBS service side). RE-VERIFY 2026-10-01: rerun the unmodified lbsmatrix control; a return to +CLBS: 0 confirms a server-side outage rather than a firmware regression.",
+      "actual_result": "09-29: +CLBS: 0,18.481703,73.897415,550 (PASS, corroborated by GNSS 18.480776, 73.897998). 09-30: +CLBS: 10 in all tested modes (mode1-cid1, mode9-cid1, mode2-cid1, default-CID, mode4) with true cold modem power-cycle and identical 09-29 byte sequence. Modem data plane healthy (NETOPEN OK, IPADDR valid, CIPOPEN to mqtt.easyiothings.com:80 and lbs-simcom.com:3002 OK) \u2014 ret_code 10 = LBS application close (carrier/SIMCom LBS service side). RE-VERIFY 2026-10-01: rerun the unmodified lbsmatrix control; a return to +CLBS: 0 confirms a server-side outage rather than a firmware regression.",
       "status": "FAIL",
       "evidence": "lbsmatrix serial capture 2026-09-29: MARK-TRY-mode1-cid1 VERDICT => SUCCESS (+CLBS: 0). lbsmatrix 2026-09-30 (/tmp/lbsmatrix-now.log): all modes return +CLBS: 10. lbs_debug 09-30 with cold modem power-cycle (/tmp/lbs-cold.log): PWRKEY OFF/ON, byte-for-byte 09-29 flow -> +CLBS: 10 for mode1/9/2. Socket probe (/tmp/lbs-debug8/9.log): CIPOPEN to lbs-simcom.com:3002 OK, CIPOPEN to mqtt.easyiothings.com:80 OK, but AT+CLBS returns 10 even with NETOPEN active. See /tmp/lbs-cold.log, /tmp/lbsmatrix-now.log, /tmp/lbs-debug9.log.",
       "executed_at": "2026-09-30T20:23:00Z"
@@ -339,11 +339,12 @@
         "SoftAP running"
       ],
       "steps": [
-        "Associate a client",
-        "Check for a 192.168.4.x lease",
-        "Request the captive portal path"
+        "Associate a client to NomadLink-XXXX",
+        "Check for a 192.168.4.x lease in the console's client table and on the client",
+        "Request http://192.168.4.1/ and confirm the console renders",
+        "Request http://nomadlink.local/ and confirm the console resolves and renders"
       ],
-      "expected_result": "Client receives a lease and the captive portal redirects",
+      "expected_result": "Client receives a 192.168.4.2-12 lease and the console renders at both 192.168.4.1 and nomadlink.local. NOTE: the captive-portal redirect in the original definition is removed -- it is not achievable on this firmware (no lwIP DNS server, so no probe interception point). See ADR-007. Not yet run: no real client has been associated.",
       "actual_result": "",
       "status": "NOT_RUN",
       "evidence": "",

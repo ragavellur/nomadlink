@@ -62,6 +62,15 @@
 #include <errno.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include <esp_wifi.h>
+/* Must come AFTER esp_wifi.h: its header guard #errors out if
+ * ESP_WIFI_MAX_CONN_NUM is not already defined, and esp_wifi.h is what defines
+ * it (via esp_wifi_types_native.h). Reversing these two includes breaks the
+ * build with a deliberately unhelpful "WiFi header mismatch!" message. */
+#include <esp_wifi_ap_get_sta_list.h>
+#include <ESPAsyncWebServer.h>
+#include <ESPmDNS.h>
+#include "web_console.h"
 
 /* --- modem wiring, verified against Waveshare's own materials -----------
  *
@@ -118,6 +127,17 @@
 #define AP_DNS_SECONDARY_STR "1.1.1.1"
 #define STAGE              3
 
+/* --- console ----------------------------------------------------------- */
+#define CONSOLE_MDNS_NAME   "nomadlink"
+#define CONSOLE_PORT        80
+/* Ceiling on tracked clients. Matches ESP_WIFI_MAX_CONN_NUM (15) for the
+ * esp32s3. Note the real ceiling on getting an ADDRESS is lower: this core is
+ * built with CONFIG_LWIP_DHCPS_MAX_STATION_NUM=8, so at most 8 clients can be
+ * leased at once even though up to 15 can associate. */
+#define CONSOLE_MAX_CLIENTS 15
+/* How often to re-sample modem telemetry when the PPP feeder is not running. */
+#define CONSOLE_MODEM_POLL_MS 30000UL
+
 HardwareSerial modem(1);
 static struct netif ppp_netif;
 static ppp_pcb *g_pcb = NULL;
@@ -136,6 +156,41 @@ static bool               g_tcpip_ready= false;
  * set (that would require re-creating the task), but latched so a future WAN
  * redial can request a clean stop instead of racing the task. */
 static volatile bool      g_ppp_feed_stop = false;
+
+/* The console must never touch the UART itself (architecture §8: one task owns
+ * all AT traffic). This flag is the authority on whether that owner is running,
+ * because g_got_ip is not a safe proxy: PPP can be dialled and still be waiting
+ * for an IP, which is exactly the window where an interleaved AT command would
+ * corrupt a live LCP exchange. */
+static volatile bool      g_feeder_running = false;
+
+/* Modem telemetry, sampled on the UART-owning side and cached for the console.
+ * csq < 0 means "never sampled", which the UI renders as NOT SAMPLED rather than
+ * as a fabricated 0. */
+struct ModemTelemetry {
+  int  csq;                 /* raw +CSQ first field, 0..31, 99 = unknown */
+  bool registered;          /* +CEREG state == 1 */
+  char operatorName[40];    /* as reported by +COPS?, verbatim */
+  unsigned long sampledAtMs;
+};
+static ModemTelemetry g_modem = { -1, false, "-", 0UL };
+
+/* Associated-client table, so the console can show who is on the AP and for how
+ * long. The core reports MAC+IP pairs but no join time, so first-seen is ours. */
+struct ClientEntry {
+  char mac[18];
+  char ip[16];
+  unsigned long firstSeenMs;
+  bool used;
+};
+static ClientEntry g_clients[CONSOLE_MAX_CLIENTS];
+
+/* The SSID actually broadcast, kept for the console. startSoftAP() runs long
+ * before any HTTP request can arrive, so its stack-local buffer is gone by then
+ * and re-deriving the name risks reporting something other than what clients
+ * really joined. */
+static char g_ssid[32] = "";
+
 
 /* --- logging ---------------------------------------------------------- */
 static void say(const char *fmt, ...) {
@@ -641,6 +696,11 @@ static void startSoftAP() {
 
   char ssid[32];
   snprintf(ssid, sizeof(ssid), "%s%02X%02X", AP_SSID_PREFIX, mac[4], mac[5]);
+  /* Keep a copy for the console: the stack-local buffer is long gone by the
+   * time an HTTP request arrives, and re-deriving it would risk reporting a
+   * different SSID than the one actually broadcast. */
+  strncpy(g_ssid, ssid, sizeof(g_ssid) - 1);
+  g_ssid[sizeof(g_ssid) - 1] = 0;
 
   say("STAGE 1: SoftAP");
   say("  mac          %02X:%02X:%02X:%02X:%02X:%02X",
@@ -768,6 +828,13 @@ static bool startPPP() {
     say("  modem unreachable");
     return false;
   }
+
+  /* Sample for the console HERE and nowhere else before the dial. This is the
+   * one window where the modem is on, nothing else owns the UART, and no PPP
+   * session exists to be corrupted. After the feeder starts, the UART is never
+   * idle again, so a live refresh is not safe — the console shows this
+   * snapshot's age instead of implying it is current. */
+  sampleModemTelemetry();
 
   logAT("echo off",         "ATE0");
   logAT("signal",           "AT+CSQ");
@@ -971,7 +1038,258 @@ static void startPppFeeder() {
                               5, NULL, 1) != pdPASS) {
     say("  pppFeeder task FAILED to start");
   } else {
+    g_feeder_running = true;
     say("  pppFeeder task up on core 1");
+  }
+}
+
+/* ------------------------------------------------------------------ *
+ *  Console — TASK-801 / TASK-802
+ *
+ *  Modelled on martin-ger/esp32_nat_router: one self-contained page served
+ *  from flash, reachable by mDNS, reporting the router's own state. The NAT
+ *  and forwarding half of that project is already implemented above (STAGE 3);
+ *  this is the web half.
+ *
+ *  The UI serves only measured values. Anything not integrated is listed as
+ *  NOT INTEGRATED with the TASK that owns it, never as a plausible number.
+ * ------------------------------------------------------------------ */
+
+static AsyncWebServer g_web(CONSOLE_PORT);
+static bool g_mdns_ok = false;
+
+/* Extract the first "quoted field" from an AT response. Used for the operator
+ * name in +COPS?, which arrives as +COPS: 0,2,"40490",7 (PLMN) or
+ * +COPS: 0,0,"Airtel",7 (name). */
+static bool atQuoted(const char *hay, char *out, size_t n) {
+  const char *q1 = strchr(hay, '"');
+  if (!q1) return false;
+  const char *q2 = strchr(q1 + 1, '"');
+  if (!q2) return false;
+  size_t len = (size_t)(q2 - q1 - 1);
+  if (len >= n) len = n - 1;
+  memcpy(out, q1 + 1, len);
+  out[len] = 0;
+  return true;
+}
+
+static int atIntAfter(const char *hay, const char *key) {
+  const char *p = strstr(hay, key);
+  if (!p) return -1;
+  p += strlen(key);
+  while (*p == ' ') p++;
+  if (*p < '0' || *p > '9') return -1;
+  return atoi(p);
+}
+
+/* Sample CSQ / registration / operator. ONLY call this when no other task owns
+ * the UART — see g_feeder_running. Called once from startPPP() while the modem
+ * is on and the feeder has not started, then from loop() only while the feeder
+ * is idle. The value is a snapshot: with PPP up the feeder owns the UART
+ * continuously, so a live refresh is not safe and the UI shows the sample age
+ * rather than pretending the number is current. */
+static void sampleModemTelemetry() {
+  if (g_feeder_running) return;
+
+  String csq = sendAT("AT+CSQ", 1200);
+  int v = atIntAfter(csq.c_str(), "+CSQ:");
+  if (v >= 0) g_modem.csq = v;
+
+  String cereg = sendAT("AT+CEREG?", 1200);
+  int st = atIntAfter(cereg.c_str(), "+CEREG:");
+  /* +CEREG: <n>,<state>[,...] — the state is the SECOND field, so parse past
+   * the first comma explicitly rather than reusing atIntAfter. */
+  {
+    const char *p = strstr(cereg.c_str(), "+CEREG:");
+    if (p) {
+      p = strchr(p, ',');
+      if (p) {
+        while (*p == ' ' || *p == ',') p++;
+        g_modem.registered = (atoi(p) == 1);
+      }
+    }
+  }
+
+  /* AT+COPS? is documented as unreliable on this module (it can report 0 while
+   * registered), so it is used ONLY to display the network name and is never
+   * used as a gate. Registration above is the authority. */
+  String cops = sendAT("AT+COPS?", 1500);
+  if (cops.indexOf("+COPS:") >= 0) {
+    char name[40];
+    if (atQuoted(cops.c_str(), name, sizeof(name))) {
+      strncpy(g_modem.operatorName, name, sizeof(g_modem.operatorName) - 1);
+      g_modem.operatorName[sizeof(g_modem.operatorName) - 1] = 0;
+    }
+  }
+  g_modem.sampledAtMs = millis();
+  say("  modem telemetry: csq=%d registered=%d operator=%s",
+      g_modem.csq, (int)g_modem.registered, g_modem.operatorName);
+}
+
+/* Refresh the first-seen table with real MAC+IP pairs.
+ *
+ * WiFi.softAPgetStationInfo() existed in core 2.x and is GONE in 3.x — only
+ * softAPgetStationNum() survives. The supported replacement is
+ * esp_wifi_ap_get_sta_list() for the MACs, then
+ * esp_wifi_ap_get_sta_list_with_ip() to pair them with addresses (it resolves
+ * from the DHCP table, falling back to the ARP cache).
+ *
+ * The alternative — inferring the address from IP_EVENT_AP_STAIPASSIGNED and
+ * guessing which MAC it belonged to — would be a heuristic, and a wrong
+ * MAC/IP pairing shown as fact is exactly the class of bug this project exists
+ * to avoid. So the real API is used, and a client that has associated but has
+ * no address yet is shown with "no address" rather than a borrowed one. */
+static void refreshClients() {
+  ClientEntry seen[CONSOLE_MAX_CLIENTS];
+  memset(seen, 0, sizeof(seen));
+  int n = 0;
+
+  wifi_sta_list_t wl = {};
+  if (esp_wifi_ap_get_sta_list(&wl) != ESP_OK) {
+    /* Leave the previous table intact: an empty list here would render as
+     * "no clients" when the truth is "could not read the list". */
+    return;
+  }
+  wifi_sta_mac_ip_list_t ipmac = {};
+  bool have_ip = (esp_wifi_ap_get_sta_list_with_ip(&wl, &ipmac) == ESP_OK);
+
+  int total = wl.num;
+  if (total > CONSOLE_MAX_CLIENTS) total = CONSOLE_MAX_CLIENTS;
+
+  for (int i = 0; i < total; i++) {
+    const uint8_t *mac = wl.sta[i].mac;
+    snprintf(seen[n].mac, sizeof(seen[n].mac), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+    seen[n].ip[0] = 0;
+    if (have_ip && i < ipmac.num && ipmac.sta[i].ip.addr != 0) {
+      ip4_addr_t a;
+      a.addr = ipmac.sta[i].ip.addr;
+      ip4addr_ntoa_r(&a, seen[n].ip, sizeof(seen[n].ip));
+    } else {
+      /* Associated, but no lease yet. Say so rather than inventing 0.0.0.0. */
+      snprintf(seen[n].ip, sizeof(seen[n].ip), "no address yet");
+    }
+
+    /* Carry the original first-seen forward if this MAC is already known. */
+    seen[n].firstSeenMs = millis();
+    for (int k = 0; k < CONSOLE_MAX_CLIENTS; k++) {
+      if (g_clients[k].used && strcmp(g_clients[k].mac, seen[n].mac) == 0) {
+        seen[n].firstSeenMs = g_clients[k].firstSeenMs;
+        break;
+      }
+    }
+    seen[n].used = true;
+    n++;
+  }
+
+  memcpy(g_clients, seen, sizeof(g_clients));
+}
+
+/* JSON string escaping for the operator name, which comes from the modem and
+ * may contain characters that would otherwise break the document. */
+static void jsonEscape(const char *in, char *out, size_t n) {
+  size_t o = 0;
+  for (size_t i = 0; in[i] && o + 2 < n; i++) {
+    unsigned char c = (unsigned char)in[i];
+    if (c == '"' || c == '\\') { out[o++] = '\\'; out[o++] = (char)c; }
+    else if (c < 0x20)         { o += snprintf(out + o, n - o, "\\u%04x", c); }
+    else                       { out[o++] = (char)c; }
+  }
+  out[o] = 0;
+}
+
+static void buildStatusJson(char *buf, size_t n) {
+  char pppLocal[20] = "-", pppPeer[20] = "-", defGw[20] = "-";
+  if (g_got_ip && g_ppp_netif != NULL) {
+    /* Read under the core lock: netif addresses are owned by the tcpip thread. */
+    LOCK_TCPIP_CORE();
+    strncpy(pppLocal, addrStr(netif_ip4_addr(g_ppp_netif), pppLocal, sizeof(pppLocal)),
+            sizeof(pppLocal) - 1);
+    strncpy(pppPeer,  addrStr(netif_ip4_gw(g_ppp_netif), pppPeer, sizeof(pppPeer)),
+            sizeof(pppPeer) - 1);
+    if (netif_default != NULL) {
+      strncpy(defGw, addrStr(netif_ip4_gw(netif_default), defGw, sizeof(defGw)),
+              sizeof(defGw) - 1);
+    }
+    UNLOCK_TCPIP_CORE();
+  }
+
+  char opEsc[96];
+  jsonEscape(g_modem.operatorName, opEsc, sizeof(opEsc));
+
+  refreshClients();
+
+  int o = snprintf(buf, n,
+      "{\"ssid\":\"%s\",\"ap_ip\":\"%s\",\"mdns_ok\":%s,"
+      "\"dhcp_start\":\"%s\",\"dhcp_end\":\"%s\","
+      "\"dns_prim\":\"%s\",\"dns_sec\":\"%s\","
+      "\"ppp_up\":%s,\"ppp_local\":\"%s\",\"ppp_peer\":\"%s\",\"default_gw\":\"%s\","
+      "\"napt_on\":%s,\"tx_bytes\":%lu,\"rx_bytes\":%lu,"
+      "\"tap_pkts\":%lu,\"tap_bytes\":%lu,"
+      "\"csq\":%d,\"csq_valid\":%s,\"registered\":%s,\"operator\":\"%s\","
+      "\"csq_age_s\":%ld,\"clients\":%d,\"uptime\":%lu,"
+      "\"heap_free\":%lu,\"heap_min\":%lu,"
+      "\"psram_free\":%lu,\"psram_total\":%lu,"
+      "\"flash_used\":%lu,\"flash_total\":%lu,\"client_list\":[",
+      g_ssid, AP_GW_IP, g_mdns_ok ? "true" : "false",
+      AP_DHCP_START, AP_DHCP_END, AP_DNS_PRIMARY_STR, AP_DNS_SECONDARY_STR,
+      g_got_ip ? "true" : "false", pppLocal, pppPeer, defGw,
+      g_napt_on ? "true" : "false",
+      (unsigned long)g_tx_bytes, (unsigned long)g_rx_bytes,
+      (unsigned long)g_tap_pkts, (unsigned long)g_tap_bytes,
+      g_modem.csq, g_modem.csq >= 0 ? "true" : "false",
+      g_modem.registered ? "true" : "false", opEsc,
+      (long)((g_modem.sampledAtMs == 0) ? -1
+                                         : (millis() - g_modem.sampledAtMs) / 1000),
+      (int)WiFi.softAPgetStationNum(), (unsigned long)(millis() / 1000),
+      (unsigned long)ESP.getFreeHeap(), (unsigned long)ESP.getMinFreeHeap(),
+      (unsigned long)ESP.getFreePsram(), (unsigned long)ESP.getPsramSize(),
+      (unsigned long)ESP.getSketchSize(), (unsigned long)ESP.getFlashChipSize());
+
+  if (o < 0 || (size_t)o >= n) { buf[0] = 0; return; }
+
+  for (int i = 0; i < CONSOLE_MAX_CLIENTS && g_clients[i].used; i++) {
+    int w = snprintf(buf + o, n - o, "%s{\"mac\":\"%s\",\"ip\":\"%s\",\"since_s\":%lu}",
+                     (i == 0) ? "" : ",", g_clients[i].mac, g_clients[i].ip,
+                     (unsigned long)((millis() - g_clients[i].firstSeenMs) / 1000));
+    if (w < 0 || (size_t)(o + w) >= n) break;
+    o += w;
+  }
+  snprintf(buf + o, n - o, "]}");
+}
+
+static void startConsole() {
+  refreshClients();
+
+  g_web.on("/", HTTP_GET, [](AsyncWebServerRequest *r) {
+    r->send_P(200, "text/html", CONSOLE_HTML);
+  });
+
+  g_web.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *r) {
+    /* One static buffer, reused. ESPAsyncWebServer copies the payload before
+     * the handler returns, so this is safe and avoids a per-request heap
+     * allocation on a device where the NAPT table has already taken ~16 KB. */
+    static char json[1400];
+    buildStatusJson(json, sizeof(json));
+    r->send(200, "application/json", json);
+  });
+
+  /* Anything else is the console's single page. A phone that requests a
+   * missing asset should still land on the console rather than a 404. */
+  g_web.onNotFound([](AsyncWebServerRequest *r) {
+    r->send_P(200, "text/html", CONSOLE_HTML);
+  });
+
+  g_web.begin();
+  say("  console http://%s (port %d)", AP_GW_IP, CONSOLE_PORT);
+
+  g_mdns_ok = MDNS.begin(CONSOLE_MDNS_NAME);
+  if (g_mdns_ok) {
+    MDNS.addService("http", "tcp", CONSOLE_PORT);
+    say("  mDNS %s.local up", CONSOLE_MDNS_NAME);
+  } else {
+    say("  mDNS FAILED - console still reachable at http://%s", AP_GW_IP);
   }
 }
 
@@ -981,6 +1299,8 @@ void setup() {
   delay(1500);
 
   startSoftAP();
+  startConsole();
+
 
   bool ppp_ok = false;
 #if STAGE >= 2
@@ -1019,6 +1339,26 @@ void loop() {
     if (now_clients > last_clients) say("  client associated (%d now)", now_clients);
     else say("  client left (%d now)", now_clients);
     last_clients = now_clients;
+  }
+
+  /* Keep the console's client table current so "since" and the MAC/IP list stay
+   * truthful between page loads. Cheap, and it does not touch the UART. */
+  static uint32_t last_refresh = 0;
+  if (millis() - last_refresh > 2000) {
+    last_refresh = millis();
+    refreshClients();
+  }
+
+  /* Refresh modem telemetry ONLY while the PPP feeder is not running. With PPP
+   * up the feeder owns the UART for the life of the session, and an interleaved
+   * AT command would corrupt live LCP traffic — so the snapshot simply ages and
+   * the UI shows its age. Never send AT here speculatively. */
+  if (!g_feeder_running) {
+    static uint32_t last_modem = 0;
+    if (millis() - last_modem > CONSOLE_MODEM_POLL_MS) {
+      last_modem = millis();
+      if (g_modem.sampledAtMs != 0) sampleModemTelemetry();
+    }
   }
 
   static uint32_t last = 0;

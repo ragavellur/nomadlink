@@ -4,6 +4,15 @@ Working reference for this board. Read before touching the modem or GNSS again.
 
 ## THE THREE CRITICAL THINGS
 
+> Current lessons run **L-08 … L-14**. If you change the modem power sequence, the NMEA
+> port, the AT+CLBS form, or add a new library/core API, read the matching entry first:
+> **L-14** (a compile error in new test code is not a finding about the dependency),
+> **L-13** (reproduce the old flow before blaming firmware), **L-12** (lwIP PPP needs
+> three things the WiFi stack does not), **L-11** (PWRKEY is not a reset; AT silence is
+> ambiguous), **L-10** (a verdict is a claim; the raw bytes are the evidence),
+> **L-09** (never write an unverified negative into the docs), **L-08** (a claim in a
+> docstring is a claim, not a mechanism).
+
 ### 1. PWRKEY power-on pulse is mandatory — GPIO42
 
 The A7670E needs a real power-on sequence. Merely holding the module out of reset
@@ -314,6 +323,12 @@ bizarre error far away, inside a core header.**
 
 ## MISTAKES MADE (do not repeat)
 
+0. **Nearly recorded "ESPAsyncWebServer is incompatible with core 3.3.11" as a
+   design constraint, on the strength of one compile error that was actually my own
+   call to a non-existent `ESP.getChipId()`.** One symbol, one grep, and the design
+   would have been downgraded and written into an ADR. See L-14. General form: a
+   compile error names a symbol; it does not name a library.
+
 1. **Skipped the PWRKEY (GPIO42) power-on pulse.** Concluded "no satellite
    signal outdoors is a hardware/antenna problem" when the real cause was the
    module had never been started. Sent the user outdoors for nothing.
@@ -584,3 +599,41 @@ independent subsystems fail in the same window, that is a strong hint they share
 a cause — here, a portable unit that was moved and a carrier service that went
 down. Check the physical setup before the build.
 
+
+---
+
+## L-14 — A compile error in new test code is not a finding about the dependency (2026-09-30)
+
+Adding the admin console, the first spike of `ESPAsyncWebServer` + `AsyncTCP`
+against the production FQBN failed on its first attempt. The tempting
+conclusion was that the async libraries are incompatible with core 3.3.11, which
+would have sent me to the documented fallback (the core's blocking `WebServer.h`)
+and permanently downgraded the design on the strength of one error message.
+
+The error was `ESP.getChipId()`. That API does not exist in this core. The
+libraries were never involved — I had called a function that was never there.
+After removing it the same spike compiled clean: 948,319 bytes flash, 47,300
+bytes RAM.
+
+General rule: **before concluding that a dependency is incompatible, read the
+error's own claim.** A compile error names a symbol, a type or a signature; it
+does not name a library. Check whether the symbol belongs to the dependency or to
+the code you just typed, by searching the library headers and the core headers
+separately. This is the third time this project has mis-read a failure in
+*test* code as a fact about hardware or a third-party component (see L-08, and
+the `MARK-CONNECTED` marker that printed regardless of CONNECT success).
+
+The same increment produced three more of these, all worth the same scepticism:
+`WiFi.softAPgetStationInfo()` simply no longer exists in core 3.x,
+`ESP.getMinEverFreeHeap()` is named `ESP.getMinFreeHeap()`, and
+`esp_wifi_ap_get_sta_list_with_ip()` is not reachable from `esp_wifi.h` — it
+lives in `esp_wifi_ap_get_sta_list.h`, which must be included *after*
+`esp_wifi.h` or it deliberately fails with a misleading "WiFi header mismatch!".
+None of those are compatibility problems. Read the header, do not theorise.
+
+Worth stating plainly, because it is the reason this is written down: the
+four-verified-dependencies claim would have been just as false as the
+one-verified-dependencies claim it replaced, and it would have been recorded in
+an ADR as a design constraint. **A gate that only runs the new code is not
+enough — a new API must be confirmed against the headers that ship with the
+core, not against a tutorial written for a different core version.**

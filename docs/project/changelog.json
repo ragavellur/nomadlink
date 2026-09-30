@@ -1,18 +1,18 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-30T12:26:12Z",
+  "updated_at": "2026-09-30T18:40:00Z",
   "note": "Append-only. Never rewrite history here; add a new entry. Rule 24: never overwrite historical evidence.",
   "activity": [
     {
       "timestamp": "2026-09-30T15:06:00Z",
       "type": "process",
-      "summary": "Added AGENTS.md — the operating manual that captures the full project process (SDLC state machine, Definition of Done, evidence discipline, hardware truth, gate commands, secrets handling, lessons-learned discipline) so the process is followed consistently and past mistakes are not repeated. Fixed a stale FQBN in LESSONS_LEARNED.md that it exposed.",
+      "summary": "Added AGENTS.md \u2014 the operating manual that captures the full project process (SDLC state machine, Definition of Done, evidence discipline, hardware truth, gate commands, secrets handling, lessons-learned discipline) so the process is followed consistently and past mistakes are not repeated. Fixed a stale FQBN in LESSONS_LEARNED.md that it exposed.",
       "requirement_ids": [],
       "task_ids": [],
       "changes": [
-        "docs: new AGENTS.md at repo root — single entry point for the process, the anti-false-confidence evidence rules, the numbered Rules (13/20/23-24/27/37/42/44) the code and JSON actually cite, the hardware regression baseline and build/flash loop, and the consolidated do-not-repeat traps",
+        "docs: new AGENTS.md at repo root \u2014 single entry point for the process, the anti-false-confidence evidence rules, the numbered Rules (13/20/23-24/27/37/42/44) the code and JSON actually cite, the hardware regression baseline and build/flash loop, and the consolidated do-not-repeat traps",
         "docs: LESSONS_LEARNED.md Board section FQBN corrected from the stale PartitionScheme=default_8MB to app3M_fat9M_16MB (a default_8MB build compiles but will not boot; build-baseline.sh / flash-sketch.sh were already correct and are the FQBN source of truth), plus the app-partition-only (0x10000) flash note",
-        "process: no task/bug IDs claimed — this is process documentation, not product scope; make check (validate + secrets + render + baseline) passes before commit"
+        "process: no task/bug IDs claimed \u2014 this is process documentation, not product scope; make check (validate + secrets + render + baseline) passes before commit"
       ]
     },
     {
@@ -214,6 +214,23 @@
         "REQ-022"
       ],
       "task_ids": []
+    },
+    {
+      "timestamp": "2026-09-30T00:00:00Z",
+      "actor": "agent",
+      "type": "FEATURE_IMPLEMENTED",
+      "summary": "Admin console first increment (TASK-801, TASK-802). Async web server via ESPAsyncWebServer 1.2.4-fork + AsyncTCP 1.1.4, served at http://192.168.4.1 and http://nomadlink.local, with the seven-section navigation (Dashboard, Network, Camera, Location, Cloud, SMS, Telephony). Only measured values are served: SoftAP/DHCP state, PPP addresses, CSQ + operator + SAMPLE AGE, NAPT state, byte and forwarded-packet counters, heap/PSRAM/flash, and real MAC/IP client pairs from esp_wifi_ap_get_sta_list_with_ip(). A client with no lease shows 'no address yet'. Six sections are explicitly NOT INTEGRATED and name their owning TASK. The web task never touches the UART: modem telemetry is sampled once before the PPP dial and cached, and the UI shows the sample age. Process fix: the product sketch had NO compile gate at all (build-baseline.sh loops firmware/baseline/* only), so added scripts/project-tracker/build-product.sh and 'make product', now part of 'make check'. Product sketch compiles at 989,467 B (32% of the 3 MB app partition). Browser pre-flight against a MOCK /api/status confirmed rendering, tab isolation, tab persistence across reload, zero external assets, and correct degraded paths -- this is a pre-flight on the HTML and is NOT hardware evidence; TEST-801 and TEST-101 remain NOT_RUN. ADR-007 records the decision and, explicitly, that the console has no authentication and is a test surface only (TASK-404 deferred). Two spec deviations recorded rather than absorbed per ADR-002: the captive portal is impossible (no lwIP DNS server, so no probe interception point) and the DHCP pool is .2-12 not .2-254 (core ships CONFIG_LWIP_DHCPS_MAX_STATION_NUM=8).",
+      "requirement_ids": [
+        "REQ-001",
+        "REQ-020",
+        "REQ-022"
+      ],
+      "task_ids": [
+        "TASK-101",
+        "TASK-404",
+        "TASK-801",
+        "TASK-802"
+      ]
     }
   ]
 }
