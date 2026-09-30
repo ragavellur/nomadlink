@@ -4,8 +4,9 @@ Working reference for this board. Read before touching the modem or GNSS again.
 
 ## THE THREE CRITICAL THINGS
 
-> Current lessons run **L-08 … L-14**. If you change the modem power sequence, the NMEA
+> Current lessons run **L-08 … L-15**. If you change the modem power sequence, the NMEA
 > port, the AT+CLBS form, or add a new library/core API, read the matching entry first:
+> **L-15** ("it compiled" is not a result; a symbol in the archive is not a declaration),
 > **L-14** (a compile error in new test code is not a finding about the dependency),
 > **L-13** (reproduce the old flow before blaming firmware), **L-12** (lwIP PPP needs
 > three things the WiFi stack does not), **L-11** (PWRKEY is not a reset; AT silence is
@@ -13,28 +14,37 @@ Working reference for this board. Read before touching the modem or GNSS again.
 > **L-09** (never write an unverified negative into the docs), **L-08** (a claim in a
 > docstring is a claim, not a mechanism).
 
-### 1. PWRKEY power-on pulse is mandatory — GPIO42
+### 1. The module-enable rail must be asserted — and PWRKEY is not wired
+
+> **Corrected 2026-09-30.** This section previously taught a 1.2 s LOW pulse on
+> `MODEM_PWRKEY` = GPIO42, on GPIO21 as the power rail. **Both were a pinout
+> misreading.** In the schematic the PWRKEY net does not reach this board, so
+> there is no PWRKEY to pulse; the firmware drives **GPIO33** as a
+> module-enable rail, asserts it, and waits. PPP reaches the internet on this
+> wiring, which is the measurement that settles it. The diagnostic below is kept
+> because it is still the right way to recognise a GNSS engine that never
+> cold-started — but note that on this board "skipped the pulse" and "never had
+> power" are **not** available as separate faults.
 
 The A7670E needs a real power-on sequence. Merely holding the module out of reset
 is NOT enough for the GNSS engine.
 
 ```cpp
-pinMode(MODEM_PWR_PIN, OUTPUT);
-digitalWrite(MODEM_PWR_PIN, HIGH);       // GPIO21 = peripheral power rail
-
-pinMode(MODEM_PWRKEY, OUTPUT);
-digitalWrite(MODEM_PWRKEY, HIGH);
+/* What firmware/nomadlink actually does — GPIO33, no PWRKEY pulse. */
+pinMode(MODEM_PWR_PIN, OUTPUT);         // GPIO33 = module-enable rail
+digitalWrite(MODEM_PWR_PIN, LOW);
 delay(100);
-digitalWrite(MODEM_PWRKEY, LOW);
-delay(1200);                             // 1.2s low pulse
-digitalWrite(MODEM_PWRKEY, HIGH);
-delay(5000);                             // 5s for module to settle
+digitalWrite(MODEM_PWR_PIN, HIGH);      // assert the rail, then wait for AT
+modem.begin(MODEM_BAUD, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
 ```
 
-**What happens if you skip this:** the module still answers `AT`, still streams
-NMEA, and still emits *checksum-valid* sentences — so every naive test says the
-GNSS is fine. But it never cold-started, so it never downloads a fresh almanac.
-It recites the stale one from flash.
+**Never send a PWRKEY pulse speculatively.** On an already-off module it is a
+power *toggle*; on a live one it *aborts* the session. See L-11.
+
+**What happens if the module never actually starts:** it still answers `AT`,
+still streams NMEA, and still emits *checksum-valid* sentences — so every naive
+test says the GNSS is fine. But it never cold-started, so it never downloads a
+fresh almanac. It recites the stale one from flash.
 
 The tell-tale signature I wasted hours on:
 - C/N0 field **empty** for every satellite
@@ -323,49 +333,66 @@ bizarre error far away, inside a core header.**
 
 ## MISTAKES MADE (do not repeat)
 
-0. **Nearly recorded "ESPAsyncWebServer is incompatible with core 3.3.11" as a
+1. **Nearly recorded "ESPAsyncWebServer is incompatible with core 3.3.11" as a
    design constraint, on the strength of one compile error that was actually my own
    call to a non-existent `ESP.getChipId()`.** One symbol, one grep, and the design
    would have been downgraded and written into an ADR. See L-14. General form: a
    compile error names a symbol; it does not name a library.
 
-1. **Skipped the PWRKEY (GPIO42) power-on pulse.** Concluded "no satellite
+2. **Skipped the PWRKEY (GPIO42) power-on pulse.** Concluded "no satellite
    signal outdoors is a hardware/antenna problem" when the real cause was the
    module had never been started. Sent the user outdoors for nothing.
-2. **Used `CGNSSPORTSWITCH=0,1` instead of `1,1`.** Routed NMEA to the dead USB
+3. **Used `CGNSSPORTSWITCH=0,1` instead of `1,1`.** Routed NMEA to the dead USB
    CDC path instead of the live UART.
-3. **Used GPIO33 for modem control** because I misread the vendor pinout.
-   Correct pins are 21 (power rail) and 42 (PWRKEY).
-4. **Invented `AT+CGNSINF`.** It does not exist. `+CME ERROR` from a
+4. **Used GPIO33 for modem control** because I misread the vendor pinout.
+   Correct pins are 21 (power rail) and 42 (PWRKEY). **Superseded 2026-09-30:**
+   the schematic says the PWRKEY net does not reach this board, so the firmware
+   drives GPIO33 as a module-enable rail and does not pulse a key at all — the
+   "21/42" claim above was itself the misreading, and it is now wrong in the
+   other direction. Verified by working PPP on this wiring. The real error was
+   generalising from one bad pinout read without a measurement; see the
+   correction in `AGENTS.md` §5.
+
+5. **Adopted `ESPAsyncWebServer` into an ADR because the spike compiled**, then
+   boot-looped on hardware three different ways. `AsyncTCP` calls raw lwIP and
+   this core's lwIP asserts on that outside the tcpip thread; `LOCK_TCPIP_CORE`
+   trades the assert for a deadlock. See L-15. General form: a green build is a
+   statement about the toolchain, not about the device.
+
+6. **Wrote `extern struct netif *esp_netif_get_netif_impl(...)` in a `.ino`** and
+   got an "undefined reference" to a symbol that is demonstrably in
+   `libesp_netif.a`. A `.ino` is C++; the library is C. `extern "C"` fixed it.
+   See L-15.
+7. **Invented `AT+CGNSINF`.** It does not exist. `+CME ERROR` from a
    non-existent command looks identical to a hardware failure.
-5. **Hand-rolled NMEA parsing, wrong twice**, then reported the garbage output
+8. **Hand-rolled NMEA parsing, wrong twice**, then reported the garbage output
    as device state. `satsUsed=99` was a parser bug, not a sensor fault.
-6. **Gated on `AT+COPS?`**, which is unreliable on this module. Used
+9. **Gated on `AT+COPS?`**, which is unreliable on this module. Used
    `+CGPADDR` instead.
-7. **Gated `SD.begin()` on GPIO46**, which is not a real card-detect line.
+10. **Gated `SD.begin()` on GPIO46**, which is not a real card-detect line.
    Caused a false FAIL on working hardware.
-8. **Did not forward raw NMEA to the host**, leaving no ground truth to
+11. **Did not forward raw NMEA to the host**, leaving no ground truth to
    re-analyse when results looked wrong.
-9. **Ran `AT+CNMP=2` (2G) expecting a fallback.** Airtel retired 2G. There is no
+12. **Ran `AT+CNMP=2` (2G) expecting a fallback.** Airtel retired 2G. There is no
    2G fallback on this SIM; CNMP must stay 38.
-10. **Set `AT+CNMI=2,1` expecting delivery reports**, but that leaves status
+13. **Set `AT+CNMI=2,1` expecting delivery reports**, but that leaves status
     reports off. Needed `2,1,0,1,0`.
-11. **`PIN_RX`/`PIN_TX` collided with IDF macros**, producing a nonsense error
+14. **`PIN_RX`/`PIN_TX` collided with IDF macros**, producing a nonsense error
     inside `soc/reg_base.h`.
-12. **Asserted a "no carrier" conclusion from `AT+COPS?`** and told the user the
+15. **Asserted a "no carrier" conclusion from `AT+COPS?`** and told the user the
     board was faulty, when the module was fine and the command was the problem.
-13. **Declared cellular LBS unsupported from failed invocations alone.** Never ran
+16. **Declared cellular LBS unsupported from failed invocations alone.** Never ran
     `AT+CLBS=?`, which shows the real signature and that the CID is required. I
     told the user twice that a working feature was missing, and told them so
     after they had already said it worked. Overrode the user's direct
     observation of prior hardware behaviour in favour of my own failed test.
-14. **Blamed the wrong subsystem for a socket problem.** `CIPSTART` fails on this
+17. **Blamed the wrong subsystem for a socket problem.** `CIPSTART` fails on this
     module; `CIPOPEN` works. I reported the whole cellular path as unusable
     because I'd only tried the command the TinyGSM driver doesn't use.
-15. **Compared results across differing hardware states.** The patch antenna was
+18. **Compared results across differing hardware states.** The patch antenna was
     connected for part of the LBS testing and not the rest. `+CSQ: 16` -> `26`.
     I treated results spanning different antenna states as firmware facts.
-16. **Wrote unverified negatives into the docs**, which compounded a guess into
+19. **Wrote unverified negatives into the docs**, which compounded a guess into
     several: the `CLBS` row marked non-working would stop anyone re-testing it.
 
 ## VERIFIED TEST RESULTS
@@ -637,3 +664,44 @@ one-verified-dependencies claim it replaced, and it would have been recorded in
 an ADR as a design constraint. **A gate that only runs the new code is not
 enough — a new API must be confirmed against the headers that ship with the
 core, not against a tutorial written for a different core version.**
+
+## L-15 — "It compiled" is not a result, and a symbol in the archive is not a declaration (2026-09-30)
+
+Two failures on the same day, both about the gap between *building* and
+*working*, and both of the kind this project keeps paying for.
+
+**A spike that compiles proved nothing.** ADR-007 adopted `ESPAsyncWebServer`
+on evidence that included a clean compile. It boot-looped on hardware. The
+cause was not a version mismatch or a missing API: `AsyncTCP` calls **raw
+lwIP** (`tcp_listen_with_backlog()` → `tcp_alloc()`), and this core is built
+with `CONFIG_LWIP_CHECK_THREAD_SAFETY=y` and
+`CONFIG_LWIP_TCPIP_CORE_LOCKING_INPUT` **unset**, so `LWIP_ASSERT_CORE_LOCKED()`
+only passes on the tcpip thread. Three arrangements were tried — setup task,
+`LOCK_TCPIP_CORE()`, and a dedicated FreeRTOS task — and all three abort,
+because the restriction is in the core's **lwIP build**, not in scheduling.
+Wrapping the call in `LOCK_TCPIP_CORE()` trades the assert for a deadlock,
+because `AsyncTCP` uses a *blocking* `tcpip_api_call()` while the tcpip thread
+needs the very lock being held.
+
+**The rule:** when a library bypasses an API layer, the question is what the
+*core was built with*, not which version is installed. Read the sdkconfig. And
+note the reference project never made this choice safe — it uses
+`esp_http_server`, a different library, so its immunity was never evidence for
+`ESPAsyncWebServer` in the first place.
+
+**A symbol in the archive is not a declaration.** `esp_netif_get_netif_impl()`
+is defined in `libesp_netif.a` and absent from `esp_netif.h`. Declaring it in a
+`.ino` — which is compiled as **C++** — mangles the call to
+`_Z24esp_netif_get_netif_implP13esp_netif_obj`, and the link fails with an
+"undefined reference" to a name that is visibly present in the archive. The
+fix is `extern "C"`. The reference project never hit this because
+`netif_hooks.c` is C. This is L-14's family one level deeper: grep the archive
+**and** the headers, and check the **linkage**, not just the spelling.
+
+Both were caught by hardware, both after the code "passed" its gate. A compile
+gate proves the toolchain is willing, which is a much smaller claim than it
+looks like.
+
+**What now catches it:** `make check` builds every sketch, and hardware boot is
+a separate, explicit step that writes a log rather than an impression. The
+lesson is not to let a green build stand in for a boot.

@@ -293,16 +293,20 @@
         "REQ-021"
       ],
       "priority": "P0",
-      "status": "BACKLOG",
+      "status": "IN_PROGRESS",
       "dependencies": [
         "TASK-101",
         "TASK-404"
       ],
-      "description": "Scan and list SSIDs, accept credentials, store in NVS, auto-connect on boot.",
+      "description": "Wi-Fi STA scan and credential storage. AP runs in WIFI_AP_STA so a WiFi uplink exists alongside PPP. GET /api/scan, POST /api/uplink/wifi and POST /api/uplink/wifi/disconnect; credentials in the gateway's own NVS (plaintext, unencrypted - tracked as a gap); uplink choice reapplied on boot.",
       "acceptance_criteria": [
-        "Scan returns a non-empty list",
-        "Credentials survive reboot",
-        "No credential is written to the web page source or logs"
+        "GET /api/scan returns the real scan result (SSID, RSSI, encryption) rather than a cached list",
+        "POST /api/uplink/wifi joins the named SSID and returns the address actually obtained, or the real failure",
+        "Credentials are stored in on-device NVS and never in the repository",
+        "The uplink choice is reapplied on every boot, and survives PPP re-dial",
+        "Selecting a WiFi uplink with no address is refused, so clients are never routed to a dead interface",
+        "A dropped STA cannot remain the default route",
+        "Console reports the default route from netif_default, not from the PPP netif"
       ],
       "definition_of_done": [
         "Code implemented",
@@ -320,7 +324,7 @@
         "evidence": [],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "Implemented and compile-gated (997,971 B of a 3 MB app partition); make check green; flashed to the app partition at 0x10000 on 2026-09-30 with the write hash verified. Browser pre-flight against a mock /api/status verified scan, join, disconnect, mode buttons and the no-address refusal. NOT verified on hardware: no scan, no association, no STA DHCP address and no mode switch has been measured on the device, so nothing about the WiFi uplink is recorded as working. Awaiting the user's hardware test."
       },
       "git": {
         "commit_sha": "",
@@ -328,10 +332,10 @@
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
+        "started_at": "2026-09-30T22:10:00Z",
         "completed_at": "",
         "verified_at": "",
-        "last_updated_at": "2026-09-29T00:00:00Z"
+        "last_updated_at": "2026-09-30T23:55:00Z"
       }
     },
     {
@@ -2202,9 +2206,9 @@
       "dependencies": [
         "TASK-019"
       ],
-      "description": "Async web server with the seven-section navigation: Dashboard, Network, Camera, Location, Cloud, SMS, Telephony.",
+      "description": "Web shell with seven-section navigation (Dashboard, Network, Camera, Location, Cloud, SMS, Telephony) on the core WebServer. AsyncWebServer was tried first and reverted; see ADR-008.",
       "acceptance_criteria": [
-        "Async web server (ESPAsyncWebServer + AsyncTCP) serves the page, started only after the SoftAP is up",
+        "Core WebServer serves the page, started only after the SoftAP is up",
         "Seven-section navigation present: Dashboard, Network, Camera, Location, Cloud, SMS, Telephony",
         "Exactly one section visible at a time; the chosen tab survives a page reload",
         "Page is fully self-contained: zero external assets (no CDN, web font or remote CSS/JS)",
@@ -2234,7 +2238,7 @@
         "evidence": [],
         "verified_by": "",
         "verified_at": "",
-        "reason": "Implemented and compile-gated. Verified in a browser on 2026-09-30 against a mock /api/status: all 7 tabs switch, one section visible at a time, tab persists across reload, zero external assets, and the degraded paths (never-sampled CSQ, PPP down, client with no address) all render. NOT yet verified on hardware: the device has never served a page, so TEST-801 stays NOT_RUN."
+        "reason": "Implemented and compile-gated. Browser pre-flight on 2026-09-30 against a mock /api/status: 7 tabs switch, one section visible at a time, tab persists across reload, zero external assets, degraded paths (never-sampled CSQ, PPP down, client with no address) render. WEB STACK REVERSED: the async server was replaced by the core WebServer after ESPAsyncWebServer boot-looped on hardware (see ADR-008, L-15). Re-verified against the core server in the same pre-flight. NOT verified on hardware in this increment: no page load, DHCP lease, client forwarding or mode switch has been measured on the device. Awaiting the user's hardware test."
       },
       "git": {
         "commit_sha": "018401a721e42fa37bd8e51a59ee0a6eb31b58b6",
@@ -2295,7 +2299,7 @@
         "evidence": [],
         "verified_by": "",
         "verified_at": "",
-        "reason": "Implemented and compile-gated. Browser pre-flight on 2026-09-30 with a mock /api/status confirmed every field above renders, that the never-sampled CSQ path reads 'not sampled', and that killing the API produces 'disconnected - retrying' while retaining the last data. NOT hardware evidence; TEST-801 stays NOT_RUN."
+        "reason": "Implemented and compile-gated. Browser pre-flight on 2026-09-30 against a mock /api/status: Dashboard renders every measured field and states sample age for cached modem data; the client table shows real MAC/IP pairs and 'no address yet' for an associated client with no lease. Network tab additionally renders the active uplink, the default route read from netif_default, and the uplink controls; a switch to a WiFi uplink with no address is refused rather than shown as success. NOT verified on hardware: no live page load has been measured on the device. Awaiting the user's test."
       },
       "git": {
         "commit_sha": "018401a721e42fa37bd8e51a59ee0a6eb31b58b6",

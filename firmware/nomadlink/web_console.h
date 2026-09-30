@@ -59,6 +59,20 @@ static const char CONSOLE_HTML[] PROGMEM = R"rawliteral(
   .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   .ni{color:var(--dim);font-style:italic}
   .foot{color:var(--dim);font-size:11.5px;text-align:center;padding:18px 12px 28px}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0 0}
+  .upbtn{flex:0 0 auto;padding:7px 13px;border:1px solid var(--line);border-radius:6px;
+    background:transparent;color:var(--fg);font:inherit;font-size:12.5px;cursor:pointer}
+  .upbtn:hover{border-color:var(--acc)} .upbtn:disabled{opacity:.45;cursor:progress}
+  .upbtn.sel{border-color:var(--acc);background:rgba(88,166,255,.12)}
+  .row input{flex:1 1 130px;min-width:0;padding:7px 9px;border:1px solid var(--line);
+    border-radius:6px;background:transparent;color:var(--fg);font:inherit;font-size:12.5px}
+  .row input:focus{outline:none;border-color:var(--acc)}
+  #u_nets{margin-top:9px;font-size:12.5px}
+  #u_nets div{padding:5px 0;border-top:1px solid var(--line);display:flex;
+    justify-content:space-between;gap:10px}
+  #u_nets b{font-weight:600;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #u_nets em{font-style:normal;flex:0 0 auto;color:var(--fg-2)}
+  #u_ack{color:var(--acc)}
   .bar{height:5px;background:var(--line);border-radius:3px;overflow:hidden;margin-top:6px}
   .bar>i{display:block;height:100%;background:var(--acc)}
   nav{display:flex;gap:6px;overflow-x:auto;padding:8px 12px;border-bottom:1px solid var(--line);
@@ -97,6 +111,7 @@ static const char CONSOLE_HTML[] PROGMEM = R"rawliteral(
       <h2>Access point</h2>
       <div class="kv"><span>SSID</span><span id="ssid" class="mono">–</span></div>
       <div class="kv"><span>AP address</span><span id="apip" class="mono">–</span></div>
+      <div class="kv"><span>Web server</span><span id="webup">–</span></div>
       <div class="kv"><span>mDNS</span><span id="mdns" class="mono">–</span></div>
       <div class="kv"><span>DHCP pool</span><span id="dhcp" class="mono">–</span></div>
       <div class="kv"><span>Resolvers sent to clients</span><span id="dns" class="mono">–</span></div>
@@ -162,21 +177,57 @@ static const char CONSOLE_HTML[] PROGMEM = R"rawliteral(
 
     <div class="card">
       <h2>Uplink</h2>
-      <div class="kv"><span>Type</span><span class="mono">LTE PPP (A7670E)</span></div>
+      <div class="kv"><span>Active uplink</span><span id="u_mode" class="mono">–</span></div>
+      <div class="kv"><span>Default route</span><span id="n_def" class="mono">–</span></div>
       <div class="kv"><span>PPP link</span><span id="n_ppp">–</span></div>
       <div class="kv"><span>Local / peer</span><span id="n_pips" class="mono">–</span></div>
-      <div class="kv"><span>Default route</span><span id="n_def" class="mono">–</span></div>
       <div class="kv"><span>NAPT</span><span id="n_napt">–</span></div>
       <div class="kv"><span>PPP bytes out / in</span><span id="n_bytes" class="mono">–</span></div>
       <div class="kv"><span>Forwarded packets</span><span id="n_tap" class="mono">–</span></div>
+      <p class="note">Switching changes lwIP's default interface. NAPT stays on
+      the access point either way, so client traffic is translated on the way in
+      regardless of which uplink carries it. The choice is stored in NVS and
+      reapplied on every boot.</p>
+    </div>
+
+    <div class="card">
+      <h2>Choose the uplink</h2>
+      <p class="note"><b>4G (A7670E PPP)</b> uses the cellular link.
+      <b>Wi-Fi</b> uses another wireless network. Selecting an uplink that has
+      no address is refused, so a client is never routed to a dead interface.</p>
+      <div class="row">
+        <button class="upbtn" id="u_4g">Use 4G</button>
+        <button class="upbtn" id="u_wifi">Use Wi-Fi</button>
+      </div>
+      <p class="note" id="u_ack">–</p>
+    </div>
+
+    <div class="card">
+      <h2>Wi-Fi uplink network</h2>
+      <div class="kv"><span>Joined SSID</span><span id="u_ssid" class="mono">none</span></div>
+      <div class="kv"><span>State</span><span id="u_sta">–</span></div>
+      <div class="kv"><span>Address</span><span id="u_staip" class="mono">–</span></div>
+      <div class="row">
+        <input id="u_in_ssid" placeholder="network name (SSID)" maxlength="32" autocomplete="off">
+        <input id="u_in_pass" type="password" placeholder="password" maxlength="63" autocomplete="off">
+      </div>
+      <div class="row">
+        <button class="upbtn" id="u_scan">Scan</button>
+        <button class="upbtn" id="u_join">Join</button>
+        <button class="upbtn" id="u_leave">Leave</button>
+      </div>
+      <div id="u_nets" class="ni">not scanned</div>
+      <p class="note">Scan takes a few seconds and the page waits for the real
+      result. Keys are stored in the gateway's own NVS, never in this
+      repository; that store is not yet encrypted, which is the gap tracked
+      under the credential-storage task.</p>
     </div>
 
     <div class="card">
       <h2>Not integrated yet</h2>
-      <div class="kv"><span>Wi-Fi uplink scan &amp; credentials</span><span class="ni">TASK-102, TASK-105</span></div>
       <div class="kv"><span>WAN failover state machine</span><span class="ni">TASK-108</span></div>
       <div class="kv"><span>Per-client traffic accounting</span><span class="ni">TASK-110</span></div>
-      <div class="kv"><span>Config persistence in NVS</span><span class="ni">TASK-402</span></div>
+      <div class="kv"><span>Encrypted credential storage</span><span class="ni">TASK-402</span></div>
       <div class="kv"><span>Portal authentication</span><span class="ni">TASK-404</span></div>
     </div>
 
@@ -289,6 +340,7 @@ function render(s){
   set("hdr", "uptime "+fmtUptime(s.uptime)+" · "+s.clients+" client"+(s.clients===1?"":"s"));
   set("ssid", s.ssid);
   set("apip", s.ap_ip);
+  set("webup", s.web_up ? pill("SERVING","up") : pill("DOWN","down"));
   set("mdns", s.mdns_ok ? "nomadlink.local" : "unavailable");
   set("dhcp", s.dhcp_start+" – "+s.dhcp_end);
   set("dns", s.dns_prim+", "+s.dns_sec);
@@ -327,6 +379,7 @@ function render(s){
   set("n_napt", s.napt_on ? pill("ENABLED","up") : pill("OFF","down"));
   set("n_bytes", fmtBytes(s.tx_bytes)+" / "+fmtBytes(s.rx_bytes));
   set("n_tap", s.tap_pkts+" pkts · "+fmtBytes(s.tap_bytes));
+  renderUplink(s);
 
   var tb=document.getElementById("clients");
   if(!s.client_list || s.client_list.length===0){
@@ -350,6 +403,79 @@ function poll(){
       set("hdr","disconnected — retrying");
     });
 }
+
+/* ---- uplink controls -----------------------------------------------------
+ * These POST to the device; nothing here decides anything locally. The mode
+ * buttons reflect /api/status and are re-read after every change, so what the
+ * page shows is the device's answer rather than the click that was sent. */
+function post(url, body, done){
+  fetch(url, {method:"POST", headers:{"Content-Type":"application/x-www-form-urlencoded"},
+              body:body}).then(r=>r.json()).then(done)
+    .catch(e=>{ ack("request failed: "+e.message, true); });
+}
+function ack(msg, bad){
+  var e = document.getElementById("u_ack");
+  if (!e) return;
+  e.textContent = msg;
+  e.style.color = bad ? "#f85149" : "var(--acc)";
+}
+
+function renderUplink(s){
+  var m = s.uplink_wifi ? "Wi-Fi" : "4G";
+  set("u_mode", m + (s.uplink_note ? " · " + s.uplink_note : ""));
+  set("n_def", (s.default_gw && s.default_gw !== "-" ? s.default_gw : "none")
+        + (s.default_if && s.default_if !== "-" ? " via " + s.default_if : ""));
+  set("u_ssid", s.sta_ssid || "none");
+  set("u_staip", s.sta_ip || "-");
+  set("u_sta", s.sta_connected ? pill("CONNECTED","up") : pill("not joined","down"));
+  var b4=document.getElementById("u_4g"), bw=document.getElementById("u_wifi");
+  if(b4){ b4.classList.toggle("sel", !s.uplink_wifi); b4.disabled=false; }
+  if(bw){ bw.classList.toggle("sel", s.uplink_wifi); bw.disabled=false; }
+  var bj=document.getElementById("u_join"), bl=document.getElementById("u_leave");
+  if(bj) bj.disabled=false;
+  if(bl) bl.disabled=false;
+}
+
+function bindUplink(){
+  var b4=document.getElementById("u_4g"), bw=document.getElementById("u_wifi");
+  if(b4) b4.onclick=function(){ this.disabled=true; ack("switching to 4G…");
+    post("/api/uplink/mode","mode=4g",function(j){ ack(j.note||"done", j.ok===false); poll(); }); };
+  if(bw) bw.onclick=function(){ this.disabled=true; ack("switching to Wi-Fi…");
+    post("/api/uplink/mode","mode=wifi",function(j){ ack(j.note||"done", j.ok===false); poll(); }); };
+
+  var bs=document.getElementById("u_scan");
+  if(bs) bs.onclick=function(){
+    this.disabled=true; var box=document.getElementById("u_nets");
+    box.innerHTML="<div>scanning…</div>";
+    fetch("/api/scan").then(r=>r.json()).then(function(j){
+      box.innerHTML="";
+      if(!j.nets.length){ box.textContent="no networks found"; }
+      j.nets.forEach(function(n){
+        var d=document.createElement("div");
+        var b=document.createElement("b"); b.textContent=n.ssid||"(hidden)";
+        b.onclick=function(){ document.getElementById("u_in_ssid").value=n.ssid;
+                              document.getElementById("u_in_pass").focus(); };
+        var e=document.createElement("em");
+        e.textContent=n.rssi+" dBm"+(n.enc?"":" · open");
+        d.appendChild(b); d.appendChild(e); box.appendChild(d);
+      });
+    }).catch(function(e){ box.textContent="scan failed: "+e.message; })
+      .then(function(){ bs.disabled=false; });
+  };
+
+  var bj=document.getElementById("u_join");
+  if(bj) bj.onclick=function(){
+    var s=document.getElementById("u_in_ssid").value, p=document.getElementById("u_in_pass").value;
+    if(!s){ ack("enter a network name first", true); return; }
+    this.disabled=true; ack("joining '"+s+"'…");
+    post("/api/uplink/wifi","ssid="+encodeURIComponent(s)+"&pass="+encodeURIComponent(p),
+      function(j){ ack(j.ok?("joined "+j.ssid+" → "+j.ip):j.note, !j.ok); poll(); });
+  };
+
+  var bl=document.getElementById("u_leave");
+  if(bl) bl.onclick=function(){ this.disabled=true; ack("leaving…");
+    post("/api/uplink/wifi/disconnect","",function(){ ack("left the network"); poll(); }); };
+}
 /* Section switching. The chosen tab is remembered, because re-opening the
  * console to check one thing should not drop you back on the dashboard. */
 var btns=document.querySelectorAll("nav button");
@@ -368,6 +494,7 @@ try{ start=parseInt(localStorage.getItem("nlsec")||"0",10)||0; }catch(e){}
 if(start<0||start>=btns.length) start=0;
 showSec(start);
 
+bindUplink();
 poll();
 setInterval(poll,3000);
 </script>

@@ -156,22 +156,30 @@ failure modes. A web-UI change does not.
 | Signal | GPIO |
 |---|---|
 | Modem TX (module RX) / Modem RX (module TX) | 18 / 17 (`ss.begin(115200, SERIAL_8N1, 17, 18)`) |
-| Modem power rail (output HIGH) | 21 |
-| PWRKEY (1.2 s LOW pulse starts radio core) | 42 |
+| Modem module-enable rail (output HIGH) | 33 in firmware |
+| PWRKEY | **not driven from firmware** — see below |
 | I2C SDA / SCL (battery gauge MAX17048 @0x36) | 3 / 2 |
 | Camera OV2640 D0-D7 / XCLK / PCLK / VSYNC / HREF / SDA / SCL | 7-14 / 34 / 37 / 36 / 35 / 15 / 16 |
 | SD_MMC CLK / CMD / D0 | 5 / 4 / 6 |
 
-Modem control is **21 and 42**, never GPIO33 (misreading the pinout once left the
-module never properly started).
+**Correction (2026-09-30):** this table previously read "modem power rail 21 /
+PWRKEY 42" and warned "never GPIO33". That was a pinout misreading, and it is
+now wrong in the other direction. Measured and code-recorded: firmware drives
+**GPIO33** as the module-enable rail, and **GPIO42 is not PWRKEY** — in the
+schematic the PWRKEY net does not reach this board, so `powerOnModem()` asserts
+the enable rail and waits rather than pulsing a key. PPP reaches the internet on
+this wiring. Do not "correct" the firmware to 21/42 without a schematic and a
+measurement; the earlier wrong claim about GPIO33 is what this corrects.
+
+**A PWRKEY pulse is a power toggle on an off modem and an abort on a live one —
+never send one speculatively** (L-11).
 
 ### Board / build facts
 
 - FQBN partition scheme **must** be `app3M_fat9M_16MB`. A `default_8MB` build
   compiles perfectly and then **does not boot** — a compile gate cannot catch
-  this, only the flash target can. `LESSONS_LEARNED.md` §Board still shows the
-  stale `default_8MB`; **the scripts are correct, that doc line is stale** — fix
-  it when you touch that section.
+  this, only the flash target can. `LESSONS_LEARNED.md` §Board has been corrected
+  (2026-09-30); it previously still showed the stale `default_8MB`.
 - Flash **app partition only** (`0x10000`). The bootloader/partition table on
   this board are known good; overwriting them bricks a booting board.
 - USB CDC does **not** enumerate on this board. Use the UART path; do not build

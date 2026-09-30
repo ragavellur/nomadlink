@@ -68,7 +68,8 @@
  * it (via esp_wifi_types_native.h). Reversing these two includes breaks the
  * build with a deliberately unhelpful "WiFi header mismatch!" message. */
 #include <esp_wifi_ap_get_sta_list.h>
-#include <ESPAsyncWebServer.h>
+#include <WebServer.h>
+#include <Preferences.h>
 #include <ESPmDNS.h>
 #include "web_console.h"
 
@@ -90,18 +91,27 @@
  * the CH343P USB-serial chip, not to an ESP32 GPIO, so the ESP32 cannot pulse
  * it. PWRKEY is therefore not driven from here; the module is expected to come
  * up on its own once the power pin is asserted. */
-/* Modem UART baud. 115200 is the verified rate for this module and board, and
- * is the only rate the firmware should ever use.
+/* Modem UART baud. 115200 is the rate the module boots at and the rate we talk
+ * to it at until negotiateBaud() has proved a higher one works.
  *
- * An earlier revision "fixed" this to 921600 on the theory that the serial link
- * was saturating and causing the client's packet loss. That theory was wrong.
- * The measured traffic was tens of bytes per second, roughly three orders of
- * magnitude below the 11.2 KB/s ceiling, and a saturated link produces delay
- * and retransmits, not 38% loss. The change gained nothing and cost a modem
- * wedged at a rate it would not answer at, so it has been reverted.
+ * There was an earlier revision that set 921600 statically and got reverted. The
+ * reasoning at the time -- "the link is nowhere near saturation, tens of bytes
+ * per second" -- was a true measurement of the WRONG workload: an ICMP ping
+ * test. A real client browsing the AP through the NAT pushed 4.13 MB out and
+ * 513 KB in through this link (measured 2026-09-30), which at 115200's 11.2 KB/s
+ * ceiling is minutes of saturation. The symptom was a client that associates,
+ * stalls, and drops off -- "the connect is not consistent". So the earlier
+ * verdict was right about its own data and wrong about the product.
  *
- * Do not change this without evidence that 115200 is itself the problem. */
-#define MODEM_BAUD    115200
+ * The A7670X hardware design doc states the main UART supports 921600, and that
+ * 921600 is the maximum for the ordinary serial port. negotiateBaud() asks the
+ * module with AT+IPR=? rather than assuming, switches, then VERIFIES by talking
+ * to it at the new rate, and falls back to 115200 if the module goes quiet --
+ * because a module that accepts AT+IPR but does not reconfigure leaves us
+ * talking to nothing, which reads as a dead modem rather than a baud mismatch.
+ * That failure mode is exactly why the earlier static attempt was reverted. */
+#define MODEM_BAUD        115200
+#define MODEM_BAUD_TARGET 921600
 
 /* --- PPP / LCE --------------------------------------------------------- */
 #define PPP_MTU            1500
@@ -152,6 +162,11 @@ static volatile uint32_t  g_rx_bytes   = 0;
 static volatile bool      g_dialed     = false;
 static bool               g_napt_on    = false;
 static bool               g_tcpip_ready= false;
+/* The baud actually in use, which is NOT always MODEM_BAUD: negotiateBaud()
+ * may have moved it to 921600. Every reported rate and every derived capacity
+ * figure must read this, never the boot constant, or the console will state a
+ * ceiling the link is not running at. */
+static uint32_t           g_modem_baud = MODEM_BAUD;
 /* Set when the PPP feeder task must stop. Currently never cleared after being
  * set (that would require re-creating the task), but latched so a future WAN
  * redial can request a clean stop instead of racing the task. */
@@ -280,6 +295,64 @@ static void logAT(const char *label, const char *cmd) {
  * the IPB= command but fails to actually reconfigure would otherwise leave us
  * talking to nothing with no indication why. */
 
+/* Ask the module which rates it supports, switch to the fastest, then VERIFY by
+ * talking to it at the new rate. Returns the baud actually in use, so the
+ * caller and the console report the real rate and never the intended one.
+ *
+ * The verification is the part that matters. A module can accept AT+IPR and
+ * still not reconfigure; if we trusted the OK we would then run PPP into a
+ * silent UART and conclude the modem had failed. Silence at the new rate is
+ * treated as "not supported" and we fall back to the boot rate, which is
+ * always known good. */
+static uint32_t negotiateBaud() {
+  String rates = sendAT("AT+IPR=?", 2500);
+  say("  AT+IPR=? %s", rates.length() ? rates.c_str() : "(no reply)");
+
+  /* Only attempt the switch if the module actually advertised the rate. Do not
+   * assume: "run AT+CMD=? before concluding a command is unsupported" cuts both
+   * ways, and a module that does not list 921600 will just go quiet. */
+  bool advertised = rates.indexOf("921600") != -1;
+  if (!advertised) {
+    say("  baud: module does not advertise %lu, staying at %lu",
+        (unsigned long)MODEM_BAUD_TARGET, (unsigned long)MODEM_BAUD);
+    return MODEM_BAUD;
+  }
+
+  char cmd[32];
+  snprintf(cmd, sizeof(cmd), "AT+IPR=%lu", (unsigned long)MODEM_BAUD_TARGET);
+  String r = sendAT(cmd, 2500);
+  if (r.indexOf("OK") == -1) {
+    say("  baud: AT+IPR rejected (%s), staying at %lu", r.c_str(), (unsigned long)MODEM_BAUD);
+    return MODEM_BAUD;
+  }
+
+  /* The module has been told. Move our own UART, then prove the module moved
+   * with it. */
+  modem.end();
+  delay(200);
+  modem.begin(MODEM_BAUD_TARGET, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
+  delay(300);
+
+  if (modemAnswers(2000, 4)) {
+    say("  baud: VERIFIED at %lu", (unsigned long)MODEM_BAUD_TARGET);
+    g_modem_baud = MODEM_BAUD_TARGET;
+    return MODEM_BAUD_TARGET;
+  }
+
+  say("  baud: silent at %lu, reverting to %lu", (unsigned long)MODEM_BAUD_TARGET,
+      (unsigned long)MODEM_BAUD);
+  modem.end();
+  delay(200);
+  modem.begin(MODEM_BAUD, SERIAL_8N1, MODEM_RX_PIN, MODEM_TX_PIN);
+  delay(300);
+  if (!modemAnswers(2000, 4)) {
+    say("  baud: ALSO silent at %lu - modem is not answering at any rate",
+        (unsigned long)MODEM_BAUD);
+  }
+  g_modem_baud = MODEM_BAUD;
+  return MODEM_BAUD;
+}
+
 static void powerOnModem() {
   /* GPIO33 is the documented module power enable, active HIGH. It is asserted
    * LOW first so the module gets a real power cycle rather than being left in
@@ -304,6 +377,13 @@ static void powerOnModem() {
       say("PWR-ON: STILL SILENT");
     }
   }
+
+  /* Raise the link rate, but only after the module is in command mode and only
+   * if it verifies. 115200 caps PPP at 11.2 KB/s, which a browsing client
+   * saturates within seconds. */
+  g_modem_baud = negotiateBaud();
+  say("  link rate: %lu baud (%.1f KB/s ceiling)", (unsigned long)g_modem_baud,
+      ((g_modem_baud / 10.0) / 1024.0));
 }
 
 /* ------------------------------------------------------------------ *
@@ -675,6 +755,189 @@ static void installTap() {
   say("  tap installed on PPP output");
 }
 
+/* ------------------------------------------------------------------------- *
+ *  Uplink selection — 4G (PPP) or WiFi (STA)
+ *
+ *  A router needs one active uplink and the ability to change it without
+ *  reflashing. This is the esp32_nat_router model: an AP netif for clients, one
+ *  or more candidate uplink netifs, and netif_set_default() deciding where
+ *  forwarded traffic goes. lwIP does the routing and NAPT does the
+ *  translation in both cases; nothing here is a hand-rolled route.
+ *
+ *  NAPT stays enabled on the AP netif either way, which is the only place it
+ *  needs to be: client packets always enter through the AP, and the translation
+ *  happens on the way in. Switching uplinks therefore does not touch it.
+ * ------------------------------------------------------------------------- */
+static bool               g_uplink_wifi = false;   /* false = 4G, true = WiFi */
+static char               g_sta_ssid[33] = "";
+static char               g_sta_ip[20]   = "-";
+static bool               g_sta_connected = false;
+static char               g_uplink_note[96] = "";
+static struct netif      *g_sta_netif   = NULL;
+static struct netif      *g_ap_netif    = NULL;   /* set in enableNapt */
+
+/* esp_netif_get_netif_impl() is exported (defined in libesp_netif.a) but is not
+ * declared in esp_netif.h, so it has to be declared by hand. Same call
+ * esp32_nat_router's netif_hooks.c makes.
+ *
+ * extern "C" is load-bearing, not decoration. libesp_netif.a is compiled as C
+ * and exports an unmangled `esp_netif_get_netif_impl`. A .ino is compiled as
+ * C++, so a plain declaration mangles the call to
+ * _Z24esp_netif_get_netif_implP13esp_netif_obj and the link fails with an
+ * "undefined reference" to a name that visibly exists in the archive. The
+ * reference never hits this because netif_hooks.c is C. */
+extern "C" {
+struct netif *esp_netif_get_netif_impl(esp_netif_t *esp_netif);
+}
+
+/* The STA lwIP netif, resolved from the ifkey rather than by assuming an index.
+ * Netif numbering is assigned in creation order and is not a contract. */
+static struct netif *staLwipNetif() {
+  esp_netif_t *h = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+  if (h == NULL) return NULL;
+  return (struct netif *)esp_netif_get_netif_impl(h);
+}
+
+/* Point lwIP's default route at the active uplink. This is the whole switch:
+ * a client packet that misses the AP subnet is routed to whatever netif is
+ * default, so changing it moves the uplink without touching any route table. */
+static void applyUplink(const char *why) {
+  struct netif *want = g_uplink_wifi ? g_sta_netif : g_ppp_netif;
+  LOCK_TCPIP_CORE();
+  if (want != NULL) netif_set_default(want);
+  struct netif *now = netif_default;
+  UNLOCK_TCPIP_CORE();
+
+  if (want == NULL) {
+    snprintf(g_uplink_note, sizeof(g_uplink_note),
+             "no netif for the %s uplink", g_uplink_wifi ? "WiFi" : "4G");
+  } else {
+    snprintf(g_uplink_note, sizeof(g_uplink_note), "default netif %d (%s)",
+             (int)now->num, g_uplink_wifi ? "wlan" : "ppp");
+  }
+  say("  uplink -> %s [%s] (%s)", g_uplink_wifi ? "WIFI" : "4G", g_uplink_note, why);
+}
+
+static void onStaEvent(void *arg, esp_event_base_t base, int32_t id, void *data) {
+  (void)arg; (void)data;
+  /* Event-loop task: touch state and print, never block. */
+  if (base == WIFI_EVENT && id == WIFI_EVENT_STA_CONNECTED) {
+    say("  STA: associated with '%s'", g_sta_ssid);
+  } else if (base == WIFI_EVENT && id == WIFI_EVENT_STA_DISCONNECTED) {
+    g_sta_connected = false;
+    strcpy(g_sta_ip, "-");
+    say("  STA: disconnected");
+    /* A dropped STA must not silently leave a dead WiFi uplink as default. */
+    if (g_uplink_wifi) applyUplink("STA dropped, uplink is now dead");
+  } else if (base == IP_EVENT && id == IP_EVENT_STA_GOT_IP) {
+    ip_event_got_ip_t *e = (ip_event_got_ip_t *)data;
+    ip4_addr_t a;
+    a.addr = e->ip_info.ip.addr;
+    ip4addr_ntoa_r(&a, g_sta_ip, sizeof(g_sta_ip));
+    g_sta_connected = true;
+    say("  STA: got IP %s", g_sta_ip);
+    g_sta_netif = staLwipNetif();
+    if (g_uplink_wifi) applyUplink("STA got IP");
+  }
+}
+
+static void watchSta() {
+  esp_err_t r1 = esp_event_handler_register(WIFI_EVENT, ESP_EVENT_ANY_ID, onStaEvent, NULL);
+  esp_err_t r2 = esp_event_handler_register(IP_EVENT, IP_EVENT_STA_GOT_IP, onStaEvent, NULL);
+  esp_err_t r3 = esp_event_handler_register(IP_EVENT, IP_EVENT_STA_LOST_IP, onStaEvent, NULL);
+  say("  sta watcher wifi=%d gotip=%d lostip=%d", (int)r1, (int)r2, (int)r3);
+  g_sta_netif = staLwipNetif();
+  say("  sta lwip netif %s", g_sta_netif ? "found" : "NOT FOUND");
+}
+
+/* Join an SSID. Returns only after the association is decided, so the caller can
+ * report a real outcome instead of "started connecting". */
+static bool staConnect(const char *ssid, const char *pass) {
+  if (ssid == NULL || ssid[0] == 0) {
+    snprintf(g_uplink_note, sizeof(g_uplink_note), "no SSID given");
+    return false;
+  }
+  strncpy(g_sta_ssid, ssid, sizeof(g_sta_ssid) - 1);
+  g_sta_ssid[sizeof(g_sta_ssid) - 1] = 0;
+  g_sta_connected = false;
+  strcpy(g_sta_ip, "-");
+
+  say("  STA: joining '%s'%s", g_sta_ssid, (pass && pass[0]) ? " (with key)" : " (open)");
+  WiFi.begin(g_sta_ssid, (pass && pass[0]) ? pass : nullptr);
+
+  /* Association + DHCP, bounded. This blocks the caller, which is why it is
+   * never called from the event task -- only from the console handler. */
+  uint32_t t0 = millis();
+  while (millis() - t0 < 20000) {
+    if (g_sta_connected) {
+      say("  STA: connected, IP %s", g_sta_ip);
+      return true;
+    }
+    if (WiFi.status() == WL_CONNECT_FAILED) break;
+    delay(200);
+  }
+  g_uplink_note[0] = 0;
+  snprintf(g_uplink_note, sizeof(g_uplink_note), "join '%s' failed (status %d)",
+           g_sta_ssid, (int)WiFi.status());
+  say("  STA: FAILED, status %d", (int)WiFi.status());
+  return false;
+}
+
+static void staDisconnect() {
+  WiFi.disconnect(true, false);
+  g_sta_connected = false;
+  strcpy(g_sta_ip, "-");
+  say("  STA: disconnected on request");
+}
+
+/* On-device store for the uplink choice and the WiFi key. Rule 27 is about the
+ * repository, not the device: this is NVS on the gateway itself, never the git
+ * tree. It is plaintext NVS with no encryption, which is the same gap the
+ * esp32_nat_router reference closes with XChaCha20-Poly1305 and which is tracked
+ * under the credential-storage task. */
+static void uplinkLoad() {
+  Preferences p;
+  if (!p.begin("nomadlink", true)) {
+    say("  uplink prefs: NVS unavailable");
+    return;
+  }
+  g_uplink_wifi = p.getBool("uplink_wifi", false);
+  p.getString("sta_ssid", g_sta_ssid, sizeof(g_sta_ssid));
+  char pass[65] = "";
+  p.getString("sta_pass", pass, sizeof(pass));
+  p.end();
+  say("  uplink prefs: mode=%s saved_ssid=%s",
+      g_uplink_wifi ? "wifi" : "4g", g_sta_ssid[0] ? g_sta_ssid : "(none)");
+  if (g_uplink_wifi && g_sta_ssid[0]) {
+    if (staConnect(g_sta_ssid, pass)) applyUplink("restored saved WiFi uplink");
+  }
+}
+
+static void uplinkSave() {
+  Preferences p;
+  if (!p.begin("nomadlink", false)) return;
+  p.putBool("uplink_wifi", g_uplink_wifi);
+  p.putString("sta_ssid", g_sta_ssid);
+  p.end();
+}
+
+/* /*dump* the SSIDs the gateway can see. Used by the console's scan button. */
+static int staScanJson(char *buf, size_t n) {
+  int count = WiFi.scanNetworks(false, true);
+  int o = 0;
+  for (int i = 0; i < count && (size_t)o < n; i++) {
+    char esc[80];
+    jsonEscape(WiFi.SSID(i).c_str(), esc, sizeof(esc));
+    int w = snprintf(buf + o, n - o, "%s{\"ssid\":\"%s\",\"rssi\":%d,\"enc\":%d}",
+                     (i == 0) ? "" : ",", esc, (int)WiFi.RSSI(i),
+                     (int)WiFi.encryptionType(i));
+    if (w < 0 || (size_t)(o + w) >= n) break;
+    o += w;
+  }
+  WiFi.scanDelete();
+  return count;
+}
+
 /* Dump every netif. A router has to be able to explain its own routing table,
  * and this is also how the "NAPT is on the wrong netif" class of bug becomes
  * visible instead of being inferred from a client that silently fails. */
@@ -707,7 +970,10 @@ static void startSoftAP() {
       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
   say("  ssid         %s", ssid);
 
-  WiFi.mode(WIFI_AP);
+  /* AP_STA, not AP. The STA half is what lets this be a router with a WiFi
+   * uplink as well as a 4G one; in WIFI_AP mode the interface does not exist at
+   * all, so WiFi.begin() and WiFi.scanNetworks() have nothing to drive. */
+  WiFi.mode(WIFI_AP_STA);
 
   /* 192.168.4.1 is both the AP address and the gateway, and is also what gets
    * handed to clients as their DNS server.
@@ -794,6 +1060,7 @@ static void startSoftAP() {
     say("  dns for clients: FAILED, no esp_netif for the AP");
   }
   watchLeases();
+  watchSta();
 
   /* Starting the AP has a side effect that matters two stages later: the WiFi
    * library has already run esp_netif_init() and tcpip_init() on our behalf, so
@@ -978,6 +1245,7 @@ static void startRouting() {
     say("  no esp_netif for the AP - NAPT not enabled");
     return;
   }
+  g_ap_netif = (struct netif *)esp_netif_get_netif_impl(ap);
   esp_err_t err = esp_netif_napt_enable(ap);
   g_napt_on = (err == ESP_OK);
   say("  NAPT on SoftAP netif: %s (err=%d)", g_napt_on ? "enabled" : "FAILED", (int)err);
@@ -995,7 +1263,7 @@ static void startRouting() {
   say("  local egress (ESP32 itself):");
   selftestEgress();
   say("  link capacity (serial ceiling is %.1f KB/s at %lu baud):",
-      (MODEM_BAUD / 10.0) / 1024.0, (unsigned long)MODEM_BAUD);
+      (g_modem_baud / 10.0) / 1024.0, (unsigned long)g_modem_baud);
   measureThroughput();
   say("  radio health (is the loss the radio, or further out?):");
   measurePing();
@@ -1055,8 +1323,9 @@ static void startPppFeeder() {
  *  NOT INTEGRATED with the TASK that owns it, never as a plausible number.
  * ------------------------------------------------------------------ */
 
-static AsyncWebServer g_web(CONSOLE_PORT);
+static WebServer g_web(CONSOLE_PORT);
 static bool g_mdns_ok = false;
+static bool g_web_up = false;
 
 /* Extract the first "quoted field" from an AT response. Used for the operator
  * name in +COPS?, which arrives as +COPS: 0,2,"40490",7 (PLMN) or
@@ -1144,14 +1413,27 @@ static void refreshClients() {
   memset(seen, 0, sizeof(seen));
   int n = 0;
 
+  /* LOCK_TCPIP_CORE is MANDATORY here, not defensive. This core is built
+   * without a separate SYS_LIGHTWEIGHT_PROT, so the first thing
+   * esp_wifi_ap_get_sta_list_with_ip() does while resolving an address is call
+   * into lwIP, and tcp_alloc() asserts with "Required to lock TCPIP core
+   * functionality!" if the caller is not the tcpip thread. Measured, not
+   * assumed: the 2026-09-30 flash boot-looped on exactly this assert, right
+   * after "lease watcher registered" -- i.e. the first line of startConsole().
+   * Same requirement as pppos_create() and the netif address reads; see L-12.
+   * The mutex is recursive, so calling this while already holding the lock is
+   * safe, but callers should still avoid nesting it for clarity. */
+  LOCK_TCPIP_CORE();
   wifi_sta_list_t wl = {};
   if (esp_wifi_ap_get_sta_list(&wl) != ESP_OK) {
+    UNLOCK_TCPIP_CORE();
     /* Leave the previous table intact: an empty list here would render as
      * "no clients" when the truth is "could not read the list". */
     return;
   }
   wifi_sta_mac_ip_list_t ipmac = {};
   bool have_ip = (esp_wifi_ap_get_sta_list_with_ip(&wl, &ipmac) == ESP_OK);
+  UNLOCK_TCPIP_CORE();
 
   int total = wl.num;
   if (total > CONSOLE_MAX_CLIENTS) total = CONSOLE_MAX_CLIENTS;
@@ -1200,7 +1482,12 @@ static void jsonEscape(const char *in, char *out, size_t n) {
 }
 
 static void buildStatusJson(char *buf, size_t n) {
-  char pppLocal[20] = "-", pppPeer[20] = "-", defGw[20] = "-";
+  /* Before the lock: refreshClients() takes the core lock itself, and holding
+   * it across a call that also takes it works only because the mutex happens to
+   * be recursive. Nesting by accident is a trap for the next person. */
+  refreshClients();
+
+  char pppLocal[20] = "-", pppPeer[20] = "-", defGw[20] = "-", defIf[20] = "-";
   if (g_got_ip && g_ppp_netif != NULL) {
     /* Read under the core lock: netif addresses are owned by the tcpip thread. */
     LOCK_TCPIP_CORE();
@@ -1208,23 +1495,40 @@ static void buildStatusJson(char *buf, size_t n) {
             sizeof(pppLocal) - 1);
     strncpy(pppPeer,  addrStr(netif_ip4_gw(g_ppp_netif), pppPeer, sizeof(pppPeer)),
             sizeof(pppPeer) - 1);
-    if (netif_default != NULL) {
-      strncpy(defGw, addrStr(netif_ip4_gw(netif_default), defGw, sizeof(defGw)),
-              sizeof(defGw) - 1);
-    }
     UNLOCK_TCPIP_CORE();
   }
+
+  /* The default route and its gateway must be read from whichever netif is
+   * currently default, and read unconditionally. Reading them inside the PPP
+   * block above made the console keep advertising the PPP peer as the "default
+   * route" after a switch to a WiFi uplink -- the label followed the modem
+   * rather than the routing table, which is exactly the kind of unmeasured
+   * number this console is not allowed to show. */
+  LOCK_TCPIP_CORE();
+  if (netif_default != NULL) {
+    strncpy(defGw, addrStr(netif_ip4_gw(netif_default), defGw, sizeof(defGw)),
+            sizeof(defGw) - 1);
+    /* Name it by identity against the netifs this firmware owns. netif_name()
+     * exists only in lwIP's internal header, not the public one, and pulling
+     * in src/include to print a label is not worth the coupling. */
+    const char *nm = "other";
+    if (netif_default == g_ppp_netif)     nm = "ppp0";
+    else if (netif_default == g_sta_netif) nm = "wlan0";
+    else if (netif_default == g_ap_netif)  nm = "ap0";
+    strncpy(defIf, nm, sizeof(defIf) - 1);
+  }
+  UNLOCK_TCPIP_CORE();
 
   char opEsc[96];
   jsonEscape(g_modem.operatorName, opEsc, sizeof(opEsc));
 
-  refreshClients();
-
   int o = snprintf(buf, n,
-      "{\"ssid\":\"%s\",\"ap_ip\":\"%s\",\"mdns_ok\":%s,"
+      "{\"ssid\":\"%s\",\"ap_ip\":\"%s\",\"mdns_ok\":%s,\"web_up\":%s,"
       "\"dhcp_start\":\"%s\",\"dhcp_end\":\"%s\","
       "\"dns_prim\":\"%s\",\"dns_sec\":\"%s\","
-      "\"ppp_up\":%s,\"ppp_local\":\"%s\",\"ppp_peer\":\"%s\",\"default_gw\":\"%s\","
+      "\"ppp_up\":%s,\"ppp_local\":\"%s\",\"ppp_peer\":\"%s\",\"default_gw\":\"%s\",\"default_if\":\"%s\","
+      "\"uplink_wifi\":%s,\"uplink_note\":\"%s\","
+      "\"sta_ssid\":\"%s\",\"sta_connected\":%s,\"sta_ip\":\"%s\","
       "\"napt_on\":%s,\"tx_bytes\":%lu,\"rx_bytes\":%lu,"
       "\"tap_pkts\":%lu,\"tap_bytes\":%lu,"
       "\"csq\":%d,\"csq_valid\":%s,\"registered\":%s,\"operator\":\"%s\","
@@ -1232,9 +1536,11 @@ static void buildStatusJson(char *buf, size_t n) {
       "\"heap_free\":%lu,\"heap_min\":%lu,"
       "\"psram_free\":%lu,\"psram_total\":%lu,"
       "\"flash_used\":%lu,\"flash_total\":%lu,\"client_list\":[",
-      g_ssid, AP_GW_IP, g_mdns_ok ? "true" : "false",
+      g_ssid, AP_GW_IP, g_mdns_ok ? "true" : "false", g_web_up ? "true" : "false",
       AP_DHCP_START, AP_DHCP_END, AP_DNS_PRIMARY_STR, AP_DNS_SECONDARY_STR,
-      g_got_ip ? "true" : "false", pppLocal, pppPeer, defGw,
+      g_got_ip ? "true" : "false", pppLocal, pppPeer, defGw, defIf,
+      g_uplink_wifi ? "true" : "false", g_uplink_note, g_sta_ssid,
+      g_sta_connected ? "true" : "false", g_sta_ip,
       g_napt_on ? "true" : "false",
       (unsigned long)g_tx_bytes, (unsigned long)g_rx_bytes,
       (unsigned long)g_tap_pkts, (unsigned long)g_tap_bytes,
@@ -1259,31 +1565,151 @@ static void buildStatusJson(char *buf, size_t n) {
   snprintf(buf + o, n - o, "]}");
 }
 
+/* Web server = the core's WebServer (NetworkServer / BSD sockets), NOT
+ * ESPAsyncWebServer. This reversal is measured, not stylistic -- see ADR-007.
+ *
+ * ESPAsyncWebServer pulls in AsyncTCP, which bypasses the socket layer and calls
+ * raw lwIP: tcp_listen_with_backlog() -> tcp_alloc(). The Arduino core builds
+ * lwIP with CONFIG_LWIP_CHECK_THREAD_SAFETY=y, which arms
+ * LWIP_ASSERT_CORE_LOCKED() on every raw lwIP entry point, and with
+ * CONFIG_LWIP_TCPIP_CORE_LOCKING_INPUT not set, so that assert only passes on
+ * the tcpip thread itself. ("Required to lock TCPIP core functionality!" is
+ * present 21 times in the shipped liblwip.a.) Calling raw lwIP from any other
+ * task therefore aborts the boot. Three attempts, all measured on 2026-09-30:
+ *
+ *   1. begin() from the Arduino setup task -> assert, boot loop.
+ *   2. begin() wrapped in LOCK_TCPIP_CORE() -> deadlocks forever, because
+ *      AsyncTCP uses a BLOCKING tcpip_api_call() and the tcpip thread needs the
+ *      lock we are holding. Trades an assert for a hang.
+ *   3. begin() from a dedicated 4 KB FreeRTOS task -> same assert, different
+ *      task stack in the backtrace. A new task is not a new thread identity.
+ *
+ * All three fail because the restriction lives in the core's lwIP build, not in
+ * scheduling, so no user-side arrangement satisfies it short of rebuilding lwIP
+ * with a different sdkconfig.
+ *
+ * The core WebServer never calls raw lwIP -- it goes through NetworkServer, i.e.
+ * the BSD socket layer, which takes the tcpip lock itself. That is the same
+ * reason the esp32_nat_router reference is immune: its components/http_server
+ * is built on esp_http_server, not on AsyncWebServer. Both the reference and
+ * this choice avoid the one API that trips the assert.
+ *
+ * CONSEQUENCE, and it is a real cost: the core WebServer is poll-driven, not
+ * async. In 3.3.11 its _server is a NetworkServer and handleClient() runs the
+ * whole accept/parse/respond state machine for one connection at a time. It MUST
+ * be called from loop() (see loop()) or the listener accepts nothing and the
+ * console silently never loads. Its default _nullDelay is true, so each idle
+ * pass costs delay(1). */
 static void startConsole() {
+  /* Markers, not decoration. The first flash of this code boot-looped inside
+   * this function and the only clue was "the line after startSoftAP()", which
+   * is not a diagnosis. Each step announces itself so the next failure points
+   * at a line rather than at a function. */
+  say("  console: refreshing client list");
   refreshClients();
 
-  g_web.on("/", HTTP_GET, [](AsyncWebServerRequest *r) {
-    r->send_P(200, "text/html", CONSOLE_HTML);
+  say("  console: registering routes");
+  g_web.on("/", HTTP_GET, []() {
+    g_web.send_P(200, "text/html", CONSOLE_HTML);
   });
 
-  g_web.on("/api/status", HTTP_GET, [](AsyncWebServerRequest *r) {
-    /* One static buffer, reused. ESPAsyncWebServer copies the payload before
-     * the handler returns, so this is safe and avoids a per-request heap
-     * allocation on a device where the NAPT table has already taken ~16 KB. */
-    static char json[1400];
+  g_web.on("/api/status", HTTP_GET, []() {
+    /* One static buffer, reused. The core WebServer copies the payload into the
+     * response before the handler returns, so this is safe and avoids a
+     * per-request heap allocation on a device where the NAPT table has already
+     * taken ~16 KB. */
+    static char json[2048];
     buildStatusJson(json, sizeof(json));
-    r->send(200, "application/json", json);
+    g_web.send(200, "application/json", json);
+  });
+
+  /* --- uplink control ---------------------------------------------------
+   * These are the router's actual controls: pick the WAN, or point it at
+   * another SSID. They are POSTs because both change device state. */
+  g_web.on("/api/uplink/mode", HTTP_POST, []() {
+    String mode = g_web.arg("mode");
+    bool want_wifi = (mode == "wifi");
+    if (g_uplink_wifi == want_wifi) {
+      g_web.send(200, "application/json", "{\"ok\":true,\"note\":\"unchanged\"}");
+      return;
+    }
+    g_uplink_wifi = want_wifi;
+    /* Refuse to select a WiFi uplink that has no address: that would move the
+     * default route to a dead interface and black-hole every client. */
+    if (g_uplink_wifi && !g_sta_connected) {
+      g_uplink_wifi = false;
+      g_web.send(200, "application/json",
+                 "{\"ok\":false,\"note\":\"WiFi uplink has no IP; join an SSID first\"}");
+      return;
+    }
+    applyUplink("set from console");
+    uplinkSave();
+    char out[160];
+    snprintf(out, sizeof(out), "{\"ok\":true,\"mode\":\"%s\",\"note\":\"%s\"}",
+             g_uplink_wifi ? "wifi" : "4g", g_uplink_note);
+    g_web.send(200, "application/json", out);
+  });
+
+  g_web.on("/api/uplink/wifi", HTTP_POST, []() {
+    String ssid = g_web.arg("ssid");
+    String pass = g_web.arg("pass");
+    if (ssid.length() == 0) {
+      g_web.send(200, "application/json", "{\"ok\":false,\"note\":\"no SSID\"}");
+      return;
+    }
+    /* Credentials go to NVS on the device, never to the repo. */
+    Preferences p;
+    bool saved = false;
+    if (p.begin("nomadlink", false)) {
+      p.putString("sta_ssid", ssid.c_str());
+      p.putString("sta_pass", pass.c_str());
+      p.end();
+      saved = true;
+    }
+    bool ok = staConnect(ssid.c_str(), pass.c_str());
+    char out[224];
+    snprintf(out, sizeof(out),
+             "{\"ok\":%s,\"ssid\":\"%s\",\"ip\":\"%s\",\"saved\":%s,\"note\":\"%s\"}",
+             ok ? "true" : "false", g_sta_ssid, g_sta_ip, saved ? "true" : "false",
+             ok ? "joined" : g_uplink_note);
+    g_web.send(200, "application/json", out);
+  });
+
+  g_web.on("/api/uplink/wifi/disconnect", HTTP_POST, []() {
+    staDisconnect();
+    g_web.send(200, "application/json", "{\"ok\":true}");
+  });
+
+  g_web.on("/api/scan", HTTP_GET, []() {
+    /* A scan occupies the radio for a couple of seconds and this runs inside
+     * handleClient(), so the console stalls while it completes. The AP keeps
+     * serving, and the reply is the real scan result -- not a cached guess. */
+    static char list[1800];
+    int count = staScanJson(list, sizeof(list));
+    char *out = (char *)malloc(strlen(list) + 64);
+    if (out == NULL) {
+      g_web.send(200, "application/json", "{\"count\":0,\"nets\":[]}");
+      return;
+    }
+    snprintf(out, strlen(list) + 64, "{\"count\":%d,\"nets\":[%s]}", count, list);
+    g_web.send(200, "application/json", out);
+    free(out);
   });
 
   /* Anything else is the console's single page. A phone that requests a
    * missing asset should still land on the console rather than a 404. */
-  g_web.onNotFound([](AsyncWebServerRequest *r) {
-    r->send_P(200, "text/html", CONSOLE_HTML);
+  g_web.onNotFound([]() {
+    g_web.send_P(200, "text/html", CONSOLE_HTML);
   });
 
+  say("  console: starting http server");
   g_web.begin();
+  g_web_up = true;
   say("  console http://%s (port %d)", AP_GW_IP, CONSOLE_PORT);
 
+  /* mDNS is independent of the listener, so advertise now rather than wait on
+   * a task we deliberately do not block on. */
+  say("  console: starting mDNS");
   g_mdns_ok = MDNS.begin(CONSOLE_MDNS_NAME);
   if (g_mdns_ok) {
     MDNS.addService("http", "tcp", CONSOLE_PORT);
@@ -1291,6 +1717,7 @@ static void startConsole() {
   } else {
     say("  mDNS FAILED - console still reachable at http://%s", AP_GW_IP);
   }
+  say("  console registered (listener comes up asynchronously)");
 }
 
 void setup() {
@@ -1301,6 +1728,10 @@ void setup() {
   startSoftAP();
   startConsole();
 
+  /* Restore the saved uplink choice. Runs after the AP so the STA netif exists,
+   * and it may join a WiFi uplink before PPP is even dialled, which is what
+   * makes a WiFi uplink usable when the modem is not registering. */
+  uplinkLoad();
 
   bool ppp_ok = false;
 #if STAGE >= 2
@@ -1318,9 +1749,15 @@ void setup() {
   } else say("STAGE 3: skipped - no PPP interface to route through");
 #endif
 
+  /* PPP has just created or refreshed its netif, so the default route has to be
+   * re-pointed at whichever uplink is selected. Without this the choice made in
+   * the console would be silently discarded on the next boot. */
+  applyUplink("boot");
+
   say("\nREADY. Join '%s' from a phone or laptop.", AP_SSID_PREFIX);
   say("  AP clients : %d", WiFi.softAPgetStationNum());
   say("  PPP        : %s", ppp_ok ? "up" : "down");
+  say("  Uplink     : %s (%s)", g_uplink_wifi ? "WIFI" : "4G", g_uplink_note);
   say("  NAPT       : %s", g_napt_on ? "on" : "off");
   say("RESULT %s", (STAGE < 2 || ppp_ok) ? "OK" : "FAIL");
 }
@@ -1329,6 +1766,14 @@ void loop() {
   /* The PPP receive path is owned by the pppFeeder task (see startPppFeeder()).
    * Feeding from here too would double-drain a single UART. loop() only watches
    * the client side and reports status. */
+
+  /* The console is poll-driven, not async: WebServer::handleClient() runs the
+   * accept/parse/respond state machine for one connection at a time. Without
+   * this call the listener is up (g_web.begin() succeeded) but nothing is ever
+   * accepted, so the page just times out -- a failure that looks exactly like a
+   * dead AP. First on purpose, so a slow client cannot starve the status work
+   * below; when idle it costs only delay(1) (_nullDelay defaults to true). */
+  if (g_web_up) g_web.handleClient();
 
   /* Report the moment a client associates. "Associated but no lease" and "never
    * associated" are different failures and the status line alone does not tell
@@ -1378,7 +1823,7 @@ void loop() {
         now_clients,
         g_got_ip ? "up" : "down",
         g_napt_on ? "on" : "off",
-        (unsigned long)MODEM_BAUD,
+        (unsigned long)g_modem_baud,
         (unsigned long)d_out, (unsigned long)d_in,
         (unsigned long)g_tx_bytes, (unsigned long)g_rx_bytes,
         (unsigned long)g_tap_pkts, (unsigned long)g_tap_bytes);

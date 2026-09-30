@@ -10,4 +10,5 @@ Decisions are immutable once accepted. Superseding a decision creates a new ADR.
 | [ADR-004](ADR-004-direct-device-to-broker-mqtt.md) | Direct device-to-broker MQTT, no relay | Accepted | 2026-09-29 |
 | [ADR-005](ADR-005-firmware-framework-selection.md) | Firmware framework selection | Accepted (Option B) | 2026-09-29 |
 | [ADR-006](ADR-006-location-source-hierarchy.md) | Location source hierarchy: LBS then GNSS | Proposed | 2026-09-29 |
-| [ADR-007](ADR-007-admin-console-web-stack.md) | Admin console: async web server, direct-IP access, deferred auth | Accepted | 2026-09-30 |
+| [ADR-007](ADR-007-admin-console-web-stack.md) | Admin console: async web server, direct-IP access, deferred auth | Superseded in part by ADR-008 | 2026-09-30 |
+| [ADR-008](ADR-008-admin-console-core-webserver.md) | Admin console: core `WebServer`, and a selectable uplink | Accepted | 2026-09-30 |

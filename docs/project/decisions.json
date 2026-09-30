@@ -88,7 +88,7 @@
       "id": "DEC-007",
       "adr_id": "ADR-007",
       "title": "Admin console: async web server, direct-IP access, deferred auth",
-      "status": "Accepted",
+      "status": "SUPERSEDED_IN_PART",
       "date": "2026-09-30",
       "file": "docs/decisions/ADR-007-admin-console-web-stack.md",
       "relates_to": [
@@ -97,7 +97,27 @@
       "blocks": [
         "TASK-404"
       ],
-      "summary": "- **Status:** ACCEPTED \u2014 ESPAsyncWebServer over the core WebServer.h"
+      "summary": "- **Status:** ACCEPTED \u2014 ESPAsyncWebServer over the core WebServer.h",
+      "superseded_by": "ADR-008"
+    },
+    {
+      "adr_id": "ADR-008",
+      "title": "Admin console: core WebServer, and a selectable uplink",
+      "status": "ACCEPTED",
+      "date": "2026-09-30",
+      "file": "docs/decisions/ADR-008-admin-console-core-webserver.md",
+      "supersedes": "ADR-007",
+      "related": [
+        "TASK-801",
+        "TASK-802",
+        "TASK-101",
+        "TASK-102",
+        "TASK-404",
+        "REQ-001",
+        "REQ-020",
+        "REQ-022",
+        "ADR-005"
+      ]
     }
   ],
   "counts": {

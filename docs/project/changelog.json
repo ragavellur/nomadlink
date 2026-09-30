@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "updated_at": "2026-09-30T18:40:00Z",
+  "updated_at": "2026-09-30T23:55:00Z",
   "note": "Append-only. Never rewrite history here; add a new entry. Rule 24: never overwrite historical evidence.",
   "activity": [
     {
@@ -227,6 +227,24 @@
       ],
       "task_ids": [
         "TASK-101",
+        "TASK-404",
+        "TASK-801",
+        "TASK-802"
+      ]
+    },
+    {
+      "timestamp": "2026-09-30T23:55:00Z",
+      "actor": "agent",
+      "type": "FEATURE_IMPLEMENTED",
+      "summary": "Selectable uplink + admin console on the core WebServer (TASK-102, TASK-801). AP moved from WIFI_AP to WIFI_AP_STA so a WiFi uplink can exist alongside PPP. Uplink choice (4g|wifi) and WiFi credentials persist in the gateway's own NVS and are reapplied on boot. New endpoints: GET /api/scan, POST /api/uplink/mode, POST /api/uplink/wifi, POST /api/uplink/wifi/disconnect, each surfaced as controls in the Network tab. Switching is netif_set_default() only -- lwIP routes and NAPT translates in both cases, and no route or NAT rule is hand-rolled. Two guards: a WiFi uplink with no address is refused rather than black-holing clients, and a dropped STA cannot remain the default. CRITICAL REVERSAL: ESPAsyncWebServer was replaced with the core WebServer. AsyncTCP calls raw lwIP and this core builds lwIP with CONFIG_LWIP_CHECK_THREAD_SAFETY=y and CONFIG_LWIP_TCPIP_CORE_LOCKING_INPUT unset, so three arrangements all aborted (setup task, LOCK_TCPIP_CORE() -- which deadlocks because AsyncTCP uses a blocking tcpip_api_call() -- and a dedicated FreeRTOS task). The restriction is in the core's lwIP build, not scheduling. The esp32_nat_router reference is immune because it uses esp_http_server, not ESPAsyncWebServer, so its immunity was never evidence for AsyncTCP. Cost accepted and documented: the core WebServer is poll-driven and handles one connection at a time, so handleClient() must be called in loop() and a WiFi scan stalls the console for seconds. CORRECTIONS TO THE RECORD: (a) IDF's LWIP_TCPIP_CORE_LOCKING_INPUT default is n, so the core's value was never a deviation from a safer default; (b) CONFIG_LWIP_L2_TO_L3_COPY is not a NAT or forwarding enable switch -- it copies WiFi-driver L2 buffers into fresh L3 buffers to release the fixed L2 RX pool and may affect capacity only; (c) AGENTS.md said GPIO33 for modem control was a misreading and that pins 21/42 were correct -- the opposite is now measured: firmware drives GPIO33 as a module-enable rail, the PWRKEY net does not reach this board, and PPP works on that wiring; AGENTS.md, LESSONS_LEARNED.md S5 and the PWRKEY lesson are corrected in this change; (d) the console 'default route' field was reading the PPP gateway inside the PPP-up branch and so kept advertising the PPP peer after a switch to WiFi -- it is now read from netif_default unconditionally. Build gate: make product ok, 997,971 B (32% of the 3 MB app partition) and make check green. Browser pre-flight against a MOCK /api/status verified rendering, both mode buttons, scan, join, the refusal when no address, and the default-route label tracking the active uplink -- this is a pre-flight on the HTML only and is NOT hardware evidence. Nothing is recorded as hardware-verified here: no forwarding, no DHCP lease, no client internet and no mode switch have been measured on hardware in this increment. ADR-008 supersedes ADR-007 decision 1; L-15 added.",
+      "requirement_ids": [
+        "REQ-001",
+        "REQ-020",
+        "REQ-022"
+      ],
+      "task_ids": [
+        "TASK-101",
+        "TASK-102",
         "TASK-404",
         "TASK-801",
         "TASK-802"

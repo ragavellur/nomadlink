@@ -1,8 +1,13 @@
 # ADR-007 — Admin console: async web server, direct-IP access, deferred auth
 
-- **Status:** ACCEPTED
+- **Status:** ACCEPTED — **decision 1 superseded by [ADR-008](ADR-008-admin-console-core-webserver.md)** on 2026-09-30. Decisions 2–4 stand.
 - **Date:** 2026-09-30
 - **Related:** TASK-801, TASK-802, TASK-101, TASK-404, REQ-001, REQ-020, REQ-022, ADR-005
+
+> **Superseded in part.** The web server in decision 1 below
+> (`ESPAsyncWebServer`) **boot-looped on hardware** and was replaced with the
+> core `WebServer`. The spike this decision rested on compiled cleanly, which is
+> why the record is kept rather than edited. See ADR-008 and L-15.
 
 ## Context
 
