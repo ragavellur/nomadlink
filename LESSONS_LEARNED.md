@@ -247,8 +247,15 @@ WS2812B = GPIO38.
 
 ### Board
 - ESP32-S3 rev2, 16 MB flash, 2 MB PSRAM.
-- Arduino core **3.3.11**, FQBN:
-  `esp32:esp32:esp32s3:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=cdc,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=dio,FlashSize=16M,PartitionScheme=default_8MB,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=default`
+- Arduino core **3.3.11**, FQBN (**note the partition scheme — see below**):
+  `esp32:esp32:esp32s3:UploadSpeed=921600,USBMode=hwcdc,CDCOnBoot=cdc,MSCOnBoot=default,DFUOnBoot=default,UploadMode=default,CPUFreq=240,FlashMode=dio,FlashSize=16M,PartitionScheme=app3M_fat9M_16MB,DebugLevel=none,PSRAM=enabled,LoopCore=1,EventsCore=1,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=default`
+- **PartitionScheme MUST be `app3M_fat9M_16MB`.** A `default_8MB` build compiles
+  perfectly and then does not boot. A compile gate cannot catch this — only
+  flashing the target can. (This line previously said `default_8MB`, which is
+  why the canonical FQBN lives in `scripts/project-tracker/build-baseline.sh` and
+  `flash-sketch.sh`; treat those scripts as the source of truth for the FQBN.)
+- Flash the **app partition only** (`0x10000`). The bootloader and partition
+  table on this board are known good; overwriting them bricks a booting board.
 
 ## DEBUGGING RULES I BROKE
 

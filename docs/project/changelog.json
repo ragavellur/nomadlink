@@ -4,6 +4,18 @@
   "note": "Append-only. Never rewrite history here; add a new entry. Rule 24: never overwrite historical evidence.",
   "activity": [
     {
+      "timestamp": "2026-09-30T15:06:00Z",
+      "type": "process",
+      "summary": "Added AGENTS.md — the operating manual that captures the full project process (SDLC state machine, Definition of Done, evidence discipline, hardware truth, gate commands, secrets handling, lessons-learned discipline) so the process is followed consistently and past mistakes are not repeated. Fixed a stale FQBN in LESSONS_LEARNED.md that it exposed.",
+      "requirement_ids": [],
+      "task_ids": [],
+      "changes": [
+        "docs: new AGENTS.md at repo root — single entry point for the process, the anti-false-confidence evidence rules, the numbered Rules (13/20/23-24/27/37/42/44) the code and JSON actually cite, the hardware regression baseline and build/flash loop, and the consolidated do-not-repeat traps",
+        "docs: LESSONS_LEARNED.md Board section FQBN corrected from the stale PartitionScheme=default_8MB to app3M_fat9M_16MB (a default_8MB build compiles but will not boot; build-baseline.sh / flash-sketch.sh were already correct and are the FQBN source of truth), plus the app-partition-only (0x10000) flash note",
+        "process: no task/bug IDs claimed — this is process documentation, not product scope; make check (validate + secrets + render + baseline) passes before commit"
+      ]
+    },
+    {
       "timestamp": "2026-09-30T20:35:00Z",
       "type": "regression",
       "summary": "TASK-302 re-verify: BOTH location sources regressed on 2026-09-30 - AT+CLBS returns ret_code 10 (proven server-side) and GNSS dropped to 0 satellites (RF/antenna). BUG-009 and BUG-010 opened, RE-VERIFY set 2026-10-01.",
