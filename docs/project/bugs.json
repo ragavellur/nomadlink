@@ -81,7 +81,7 @@
       "fix": "tracker.ino waitForFix rewritten: real millis() deadline (FIX_WINDOW_MS 900000UL) and ADR-006 gate requiring gps.location.isValid() && gps.satellites.value() > 0",
       "regression_test": "TEST-301",
       "verification_status": "VERIFIED",
-      "commit_sha": "pending",
+      "commit_sha": "15e6ff9",
       "notes": "This bug produced a misleading NOFIX result that could be mistaken for a hardware or signal fault."
     },
     {
