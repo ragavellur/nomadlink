@@ -279,6 +279,20 @@
       "task_ids": [
         "TASK-102"
       ]
+    },
+    {
+      "timestamp": "2026-10-01T02:40:00Z",
+      "actor": "user",
+      "type": "VERIFICATION",
+      "summary": "BASE FIRMWARE VERIFIED ON HARDWARE; tagged NAT_ROUTER_WORKING. The project owner flashed the vendored esp32_nat_router base from the published web installer and confirmed the device broadcasts 'NomadLink'. This is the first successful flash of product firmware from this repository and it closes the open question of whether the served payload actually reaches the device -- the thing two earlier defects (a prebuilt payload no source edit could reach, then 20 un-pushed commits) had left unproven. Evidence is an independent observer's report, TEST-810, not a marker printed by our own code. Repository-side corroboration at the same time: published page HTTP 200 with 'Connect & Install' (20479 B), manifest 200, and all four parts 200 at their declared offsets (17664 / 3072 / 8192 / 1374544 B), with esp32_nat_router.bin correctly 404ing. SCOPE OF THE CLAIM, kept deliberately narrow: what is proven is that the base boots, the SSID is correct, and the delivery path works. Forward throughput, DHCP lease and client internet access are NOT measured. No 4G, GNSS, camera or SD capability is in this image and none is claimed. Process: L-17 recorded after handing the user a URL while 20 commits sat un-pushed; AGENTS.md section 0 now carries the six-step delivery sequence.",
+      "requirement_ids": [
+        "REQ-001",
+        "REQ-020",
+        "REQ-022"
+      ],
+      "task_ids": [
+        "TASK-102"
+      ]
     }
   ]
 }

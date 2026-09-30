@@ -13,35 +13,44 @@ must I never do again."
 
 ## 0. DO THIS NEXT
 
-**One task. Flash the base firmware and confirm the SSID.**
+**DONE — base firmware verified on hardware 2026-10-01, tagged `NAT_ROUTER_WORKING`.**
+The owner flashed `nomadlink.bin` from the published installer and the device
+broadcasts `NomadLink`. Recorded as TEST-810. See §10 for what that does and does
+not prove.
 
-1. `git push`
-2. Open `https://ragavellur.github.io/nomadlink/project/index.html`
-3. Plug the board in. Chrome, Edge or Opera. **Close every other serial monitor** —
-   `screen`, `idf.py monitor`, Arduino IDE — they hold the port and the flash fails.
-4. Press **Connect & Install**, pick the ESP32-S3 port, approve the prompt.
-5. Wait for it to finish. The board reboots.
-6. Join the WiFi network named **`NomadLink`** and confirm that is the name on
-   your phone. Open the console at `http://192.168.4.1` and confirm it loads.
+**Next task: A7670E 4G PPP as a second uplink, in `firmware/nat_router`.**
 
-**Then report the result and stop.** Do not start a feature until this passes.
+Read `firmware/nat_router/README.md` first. The Espressif reference is
+`usb_cdc_4g_module`, and this board differs from it in exactly one way that
+matters: the modem is on **UART GPIO17/18**, not USB CDC. Keep its PPP and NAPT
+approach; change only the transport. Do not modify the base's routing, DHCP or
+console, and do not re-read it for a design that already exists.
+
+Then, in this order:
+
+| Step | Command | Gate |
+|---|---|---|
+| 1 | build after each change | `make product` |
+| 2 | stage so users get the new bytes | `make stage-firmware` |
+| 3 | commit, record the real SHA in `backlog.json` | `make check` |
+| 4 | **push** | `git push origin main` |
+| 5 | **verify live** | `curl` the public URL, expect `200` and the new size |
+| 6 | **then** tell the user what to do | — |
 
 ### How to answer
 
-State only what you saw, for example: *"SSID is NomadLink, console at 192.168.4.1
-loads"* — or paste the exact error. One sentence. No summary of the code, no
-recap of what changed, no listing of gates. The user is tracking a flash, not
-reading a report. If something fails, give the **exact error text** and stop.
+State only what you saw, or the exact error text. One sentence. No summary of the
+code, no recap of what changed, no listing of gates. The user is tracking a
+flash, not reading a report.
 
-If you have not completed steps 1–5 above, you do not have an instruction to
-give. You have unfinished work. Finish it first. Reporting "done" or handing
-over a URL while `git log @{u}..HEAD` is non-empty is a defect, however
-correct the local build is.
+If you have not completed steps 1–5, you do not have an instruction to give. You
+have unfinished work. Reporting "done", or handing over a URL while
+`git log @{u}..HEAD` is non-empty, is a defect however correct the local build is.
 
-**Never** claim this works before step 6 has been done by the user. It has not
-been verified on hardware yet — see §10.
+**Never** claim hardware behaviour before the user has confirmed it. Nothing is
+verified on hardware until they say so.
 
-### The one rule behind this section
+### The delivery rule
 
 **Never tell the user to go and test until the change is pushed and you have
 verified it is live.** If you say "open the page and check the SSID" while the
@@ -63,12 +72,12 @@ first, then verify with `curl` against `https://ragavellur.github.io/nomadlink/`
 and only then give the user a URL. A local `http.server` proves the page is
 well-formed; it proves **nothing** about what users will see.
 
-This has already happened twice. The installer was pointed at a prebuilt binary
-no source edit could reach, and then 20 commits went un-pushed so the user saw a
-page from days earlier and reported the button was missing. Both times the
-defect was in the delivery, not the code. See L-16 and L-17.
+This happened three times. The installer was pointed at a prebuilt binary no
+source edit could reach; then 20 commits went un-pushed and the user reported
+the button was missing; then a rename sat committed but unstaged. Every defect
+was in the delivery, not the code. See L-16 and L-17.
 
-### The other rule behind this section
+### The staging rule
 
 Changes in the repository do **not** reach the device or the web installer by
 themselves. Two separate steps, both required:
@@ -461,13 +470,17 @@ pattern to `secrets_scan.py`.
 ## 10. Current state (2026-10-01) — read before planning
 
 - **The product base is `firmware/nat_router`** (vendored `esp32_nat_router`
-  2.4.17, ESP-IDF 5.5.x) per ADR-009. It compiles unmodified and is compile-gated.
+  2.4.17, ESP-IDF 5.5.x) per ADR-009. **Flashed and confirmed working on
+  hardware 2026-10-01 — SSID `NomadLink`, tagged `NAT_ROUTER_WORKING` (TEST-810).**
+  What that proves: the base boots, the branding is right, and the delivery path
+  works. What it does **not** prove: forward throughput, DHCP lease, or client
+  internet access — none of those were measured. It compiles unmodified and is
+  compile-gated.
   A browser web installer for the base image is generated at
   `docs/project/index.html` from `docs/project/firmware.json`, serving
   `docs/project/firmware/*.bin` via `manifest_nomadlink_esp32s3.json`.
   The page is labelled **base-only** — the A7670E 4G, GNSS, camera and SD
-  features are **not** in that image. Actual flashing is **NOT TESTED**; Web
-  Serial needs the user's click and a connected board.
+  features are **not** in that image.
 - **RISK-011 is open (S2):** upstream ships **no LICENSE file** and GitHub
   reports `license=null`. Redistribution rights are unstated. Nothing may be
   called a production release until this is settled (Rule 37).

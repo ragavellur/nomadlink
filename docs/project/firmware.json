@@ -38,8 +38,8 @@
   "verification": {
     "web_installer_mount": "PASS - esp-web-install-button custom element defined, manifest attribute set, button visible (Chrome)",
     "manifest_and_binaries_served": "PASS - HTTP 200 for manifest and all four parts at the declared offsets; sizes 17664 / 3072 / 8192 / 1370000 bytes match the manifest",
-    "actual_flash_to_device": "NOT TESTED - Web Serial needs a real user click and a connected board. Not attempted.",
-    "on_device_runtime": "NOT TESTED from this repository - upstream and the project owner report this image working on this board",
+    "actual_flash_to_device": "PASS - flashed by the project owner from the published web installer on 2026-10-01; AP broadcast SSID 'NomadLink'. Recorded as TEST-810.",
+    "on_device_runtime": "PARTIAL - base firmware boots and the AP broadcasts as NomadLink, confirmed by the project owner. Not yet measured: forward throughput, DHCP lease, client internet access, or any 4G/GNSS/camera capability (none is in this image).",
     "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app binary size 0x14f970 / 1374576 bytes)",
     "compile_gate_rejects_broken_source": "PASS - invalid C injected into main/portmap.c, gate exited 1 naming file and line; reverted and tree built again",
     "served_binary_is_local_build": "PASS - payload staged by scripts/project-tracker/stage-firmware.sh from build_esp32s3, offsets asserted against flash_args (0x0/0x8000/0xf000/0x20000)",
@@ -56,5 +56,6 @@
     "console_banner": "NomadLink - Remote Console",
     "note": "The MQTT topic prefix stays esp32_nat_router: it is a functional broker identifier, not branding, and renaming it would break existing subscriptions."
   },
-  "reproducibility": "NOT byte-reproducible, by upstream design: CMakeLists.txt force-rebuilds esp_app_desc.c so __DATE__/__TIME__ stay current. Two builds of identical source differ in ~67 bytes of the app descriptor only, same length. Do not treat a hash mismatch as a corrupt payload; the freshness guard is timestamp-based for this reason."
+  "reproducibility": "NOT byte-reproducible, by upstream design: CMakeLists.txt force-rebuilds esp_app_desc.c so __DATE__/__TIME__ stay current. Two builds of identical source differ in ~67 bytes of the app descriptor only, same length. Do not treat a hash mismatch as a corrupt payload; the freshness guard is timestamp-based for this reason.",
+  "tag": "NAT_ROUTER_WORKING"
 }

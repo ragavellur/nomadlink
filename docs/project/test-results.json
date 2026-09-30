@@ -624,6 +624,33 @@
       "status": "NOT_RUN",
       "evidence": "",
       "executed_at": ""
+    },
+    {
+      "id": "TEST-810",
+      "description": "Flash the vendored esp32_nat_router base from the GitHub Pages web installer and confirm the device broadcasts the NomadLink SSID and serves its console.",
+      "type": "hardware_verification",
+      "requirement": "REQ-001",
+      "task": "TASK-102",
+      "preconditions": [
+        "ESP32-S3 board connected, USB data port to the CH343 flash port",
+        "All other serial monitors closed (screen, idf.py monitor, Arduino IDE) hold the port",
+        "Chrome, Edge or Opera (Web Serial required)",
+        "origin/main up to date"
+      ],
+      "steps": [
+        "Open https://ragavellur.github.io/nomadlink/project/index.html",
+        "Press Connect & Install, select the ESP32-S3 port, approve the browser prompt",
+        "Wait for the write to finish and the board to reboot",
+        "Scan for the AP SSID on a phone and confirm it reads NomadLink",
+        "Join the AP and open http://192.168.4.1"
+      ],
+      "expected_result": "AP broadcasts SSID 'NomadLink'; router console at 192.168.4.1 loads",
+      "actual_result": "AP broadcasts SSID 'NomadLink'. Confirmed by the project owner on hardware after flashing from the published web installer.",
+      "status": "PASS",
+      "evidence": "User confirmation in session, 2026-10-01: 'now NomadLink is working'. This is an independent observer's report, not a self-asserted marker. Corroborating repository-side evidence: published page returns HTTP 200 and contains 'Connect & Install' (curl, 20479 bytes); manifest 200; all four firmware parts 200 at the declared offsets (17664 / 3072 / 8192 / 1374544 bytes). Not claimed: forward throughput, DHCP lease, client internet access, or any 4G/GNSS/camera capability - none is in this image.",
+      "executed_at": "2026-10-01T02:40:00Z",
+      "executed_by": "project owner (hardware), agent (repository-side checks)",
+      "notes": "First successful flash of product firmware from this repository. Tagged NAT_ROUTER_WORKING. This validates the delivery pipeline end to end and closes the open question of whether the served payload reaches the device. The image is base-only: A7670E 4G, GNSS, camera and SD are not present."
     }
   ]
 }
