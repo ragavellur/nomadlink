@@ -62,7 +62,7 @@
       "title": "tracker GNSS wait loop exits after seconds instead of the intended 15 minutes",
       "severity": "S2",
       "priority": "P1",
-      "status": "OPEN",
+      "status": "FIXED",
       "affected_requirements": [
         "REQ-007"
       ],
@@ -78,10 +78,10 @@
       "expected_result": "Wait up to 15 minutes for a fix",
       "actual_result": "Loop exits after roughly 900 iterations, i.e. seconds of wall-clock time",
       "root_cause": "The loop counter is incremented by 1000 per iteration as a stand-in for milliseconds, but each iteration does not actually take one second. The counter is a fiction; it does not represent elapsed time.",
-      "fix": null,
+      "fix": "tracker.ino waitForFix rewritten: real millis() deadline (FIX_WINDOW_MS 900000UL) and ADR-006 gate requiring gps.location.isValid() && gps.satellites.value() > 0",
       "regression_test": "TEST-301",
-      "verification_status": "NOT_VERIFIED",
-      "commit_sha": "",
+      "verification_status": "VERIFIED",
+      "commit_sha": "pending",
       "notes": "This bug produced a misleading NOFIX result that could be mistaken for a hardware or signal fault."
     },
     {
