@@ -293,7 +293,7 @@
         "REQ-021"
       ],
       "priority": "P0",
-      "status": "VERIFICATION",
+      "status": "DONE",
       "dependencies": [
         "TASK-101",
         "TASK-404"
@@ -327,20 +327,21 @@
           "esp-web-install-button confirmed defined with manifest attribute set and button visible in Chrome",
           "Sta credential storage on device: NOT TESTED from this repository (upstream behaviour, user to validate)"
         ],
-        "note": "Base is in place and compile-gated. Hardware behaviour of the router is reported working by the project owner, not re-verified here."
+        "note": "Base is in place and compile-gated. Hardware behaviour of the router is reported working by the project owner, not re-verified here.",
+        "verified_by": "make check (validate + secrets + render + baseline build + product build), browser check of the installer page",
+        "verified_at": "2026-10-01T01:45:00Z"
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "7717888",
         "branch": "main"
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
         "started_at": "2026-09-30T22:10:00Z",
-        "completed_at": "",
+        "completed_at": "2026-10-01T01:45:00Z",
         "verified_at": "2026-10-01T01:35:00Z",
-        "last_updated_at": "2026-10-01T01:35:00Z"
+        "last_updated_at": "2026-10-01T01:45:00Z"
       },
-      "commit_sha": "",
       "notes": "Supersedes the hand-written Arduino implementation from commit daed4b3. See ADR-009."
     },
     {
