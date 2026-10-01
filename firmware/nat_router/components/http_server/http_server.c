@@ -3484,6 +3484,123 @@ static httpd_uri_t setupp = {
 #endif /* !CONFIG_ETH_UPLINK */
 
 /* VPN page GET handler */
+
+/* ------------------------------------------------------------------ *
+ * Uplink / 4G page
+ *
+ * uplink_ui_get/Set live in main/uplink_manager.c. They are declared weak here
+ * because http_server is a component and must not link against main; the strong
+ * definitions in the final image bind over these. The stubs keep this component
+ * self-contained (and honestly non-functional) if it is ever built alone.
+ * ------------------------------------------------------------------ */
+bool uplink_ui_get(char *mode, size_t mode_cap, char *apn, size_t apn_cap,
+                   int *state, char *ip, size_t ip_cap,
+                   int *rssi, char *op, size_t op_cap)
+    __attribute__((weak));
+bool uplink_ui_get(char *mode, size_t mode_cap, char *apn, size_t apn_cap,
+                   int *state, char *ip, size_t ip_cap,
+                   int *rssi, char *op, size_t op_cap)
+{
+    (void)mode; (void)mode_cap; (void)apn; (void)apn_cap; (void)state;
+    (void)ip; (void)ip_cap; (void)rssi; (void)op; (void)op_cap;
+    return false;
+}
+esp_err_t uplink_ui_set(const char *mode, const char *apn) __attribute__((weak));
+esp_err_t uplink_ui_set(const char *mode, const char *apn)
+{
+    (void)mode; (void)apn;
+    return ESP_FAIL;
+}
+
+static const char *modem_state_pill(int state)
+{
+    /* 0 OFF, 1 PROBING, 2 DIALING, 3 NEGOTIATING, 4 UP, 5 ERROR
+     * (must track modem_4g_state_t; kept as ints so this file needs no modem header) */
+    static const char *cls[] = { "down", "busy", "busy", "busy", "up", "down" };
+    static const char *txt[] = { "off", "probing", "dialing", "negotiating",
+                                 "connected", "error" };
+    if (state < 0 || state > 5) return "<span class='pill down'>unknown</span>";
+    static char buf[64];
+    snprintf(buf, sizeof(buf), "<span class='pill %s'>%s</span>", cls[state], txt[state]);
+    return buf;
+}
+
+static esp_err_t modem_get_handler(httpd_req_t *req)
+{
+    resume_sta_if_scan_idle();
+
+    if (is_web_password_set() && !is_authenticated(req)) {
+        { char _ip[16]; ESP_LOGW(TAG, "Unauthenticated access to /modem from %s", get_client_ip(req, _ip, sizeof(_ip))); }
+        httpd_resp_set_status(req, "303 See Other");
+        httpd_resp_set_hdr(req, "Location", "/?auth_required=1");
+        httpd_resp_send(req, NULL, 0);
+        return ESP_OK;
+    }
+
+    char mode[8] = "wifi", apn[64] = "", ip[16] = "-", op[32] = "-";
+    int state = 0, rssi = -1;
+    bool have = uplink_ui_get(mode, sizeof(mode), apn, sizeof(apn),
+                              &state, ip, sizeof(ip), &rssi, op, sizeof(op));
+
+    /* Form submission arrives as a query string, exactly as the base's other
+     * forms do (see vpn_get_handler). Only apply it when the key is present. */
+    size_t qlen = httpd_req_get_url_query_len(req) + 1;
+    if (qlen > 1) {
+        char *q = malloc(qlen);
+        if (q && httpd_req_get_url_query_str(req, q, qlen) == ESP_OK) {
+            char p[128];
+            if (httpd_query_key_value(q, "uplink_mode", p, sizeof(p)) == ESP_OK) {
+                char p2[64] = "";
+                if (httpd_query_key_value(q, "apn4g", p2, sizeof(p2)) == ESP_OK)
+                    preprocess_string(p2);
+                ESP_LOGI(TAG, "uplink form: mode=%s apn=%s", p, p2);
+                uplink_ui_set(p, p2);
+                /* Re-read so the page renders the state we just asked for. */
+                have = uplink_ui_get(mode, sizeof(mode), apn, sizeof(apn),
+                                     &state, ip, sizeof(ip), &rssi, op, sizeof(op));
+            }
+        }
+        free(q);
+    }
+
+    const char *sel_opts = (strcmp(mode, "4g") == 0)    ? MODEM_OPT_4G_SEL  :
+                           (strcmp(mode, "eth") == 0)   ? MODEM_OPT_ETH_SEL :
+                                                          MODEM_OPT_WIFI_SEL;
+
+    char rows[768];
+    char sig[16];
+    if (rssi >= 0) snprintf(sig, sizeof(sig), "%d", rssi);
+    else           snprintf(sig, sizeof(sig), "n/a");
+
+    snprintf(rows, sizeof(rows),
+        "<tr><td>Selected uplink</td><td>%s</td></tr>"
+        "<tr><td>4G modem</td><td>%s</td></tr>"
+        "<tr><td>Signal (AT+CSQ)</td><td>%s</td></tr>"
+        "<tr><td>Operator</td><td>%s</td></tr>"
+        "<tr><td>IP address</td><td>%s</td></tr>",
+        mode, have ? modem_state_pill(state) : "<span class='pill down'>not integrated</span>",
+        sig, op, ip);
+
+    size_t need = strlen(MODEM_PAGE) + sizeof(rows) + 256 + strlen(sel_opts) + strlen(apn);
+    char *page = malloc(need);
+    if (!page) {
+        httpd_resp_send_err(req, HTTPD_500_INTERNAL_SERVER_ERROR, "oom");
+        return ESP_FAIL;
+    }
+    int n = snprintf(page, need, MODEM_PAGE, rows, sel_opts, apn);
+    httpd_resp_set_type(req, "text/html");
+    esp_err_t r = httpd_resp_send(req, page, n);
+    free(page);
+    return r;
+}
+
+static const httpd_uri_t modemp = {
+    .uri       = "/modem",
+    .method    = HTTP_GET,
+    .handler   = modem_get_handler,
+    .user_ctx  = NULL
+};
+
 static esp_err_t vpn_get_handler(httpd_req_t *req)
 {
     resume_sta_if_scan_idle();
@@ -3762,6 +3879,7 @@ httpd_handle_t start_webserver(uint16_t port)
         httpd_register_uri_handler(server, &vpnp);
 #if !CONFIG_ETH_UPLINK
         httpd_register_uri_handler(server, &setupp);
+        httpd_register_uri_handler(server, &modemp);
 #endif
         httpd_register_uri_handler(server, &favicon_uri);
         httpd_register_uri_handler(server, &config_exportp);

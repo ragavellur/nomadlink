@@ -326,6 +326,22 @@
       ],
       "evidence": "Rebuilt payload is 1374544 B, the same size as the TEST-810 verified image. NOT hardware-verified by me: the owner must reflash to confirm the AP returns.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T14:05:00Z",
+      "type": "fix",
+      "summary": "Re-add 4G uplink as 0.3.0-4g.2 with the boot-order risk removed, after 0.2.0-4g.1 bricked the SoftAP.",
+      "requirement_ids": [],
+      "task_ids": [],
+      "changes": [
+        "RGB LED left DISABLED (led_strip_gpio default back to -1). It was the prime suspect: the GPIO38 default turned a dead code path into a live RMT allocation on every boot. Re-enable via NVS ls_gpio=38.",
+        "uplink_init() moved out of app_main into uplink_boot_task, spawned at the end of app_main and delayed 2 s, so the SoftAP and web server are already up before any modem code runs.",
+        "App console moved to UART0 (CONFIG_ESP_CONSOLE_UART_DEFAULT=y, JTAG deselected). The default native USB-Serial-JTAG console is not physically exposed on this board, which is why the 0.2.0-4g.1 panic was silent.",
+        "Port contention diagnosed: serial-monitor held the CH343 exclusively, which is what caused the browser's 'Failed to open serial port'. Not a firmware fault.",
+        "firmware.json -> 0.3.0-4g.2, app 1433360 B."
+      ],
+      "evidence": "Compile gate only: make check passes. NOT hardware-verified; the owner must flash and confirm the AP returns and /modem appears.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

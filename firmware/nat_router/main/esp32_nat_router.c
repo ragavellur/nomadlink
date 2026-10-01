@@ -33,6 +33,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_ota_ops.h"
+#include "uplink_manager.h"
 
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
@@ -324,6 +325,14 @@ static void initialize_console(void)
 #endif
 #define FACTORY_RESET_HOLD_MS 5000
 #define POLL_INTERVAL_MS      50
+
+static void uplink_boot_task(void *arg)
+{
+    /* Let the AP finish announcing itself before we touch the modem. */
+    vTaskDelay(pdMS_TO_TICKS(2000));
+    uplink_init();
+    vTaskDelete(NULL);
+}
 
 void * led_status_thread(void * p)
 {
@@ -1361,7 +1370,14 @@ void app_main(void)
         ESP_LOGI(TAG, "LED low-active mode enabled");
     }
 
-    // Load addressable LED strip GPIO from NVS (default -1 = disabled)
+    /* Addressable LED strip GPIO from NVS.
+     *
+     * NomadLink board has one WS2812B on GPIO38 (measured by hw_selftest.ino),
+     * but the LED strip is left DISABLED for now. Enabling it made
+     * led_strip_status_init() allocate an RMT channel on every boot, and the
+     * 0.2.0-4g.1 image reset in a loop with no SoftAP -- this is the prime
+     * suspect and it is not worth shipping until it is proven on this board.
+     * Re-enable by storing 38 under "ls_gpio" in NVS. */
     int led_strip_gpio_setting = -1;
     if (get_config_param_int("ls_gpio", &led_strip_gpio_setting) == ESP_OK) {
         led_strip_gpio = led_strip_gpio_setting;
@@ -1611,6 +1627,13 @@ void app_main(void)
         }
     }
 
+    /* NOTE: uplink_init() deliberately NOT called here.
+     *
+     * The SoftAP only starts further down (the ap_disabled block), so anything
+     * that panics before it leaves the device with no AP at all -- which is
+     * exactly what 0.2.0-4g.1 did. It is now started from a task at the very
+     * end of app_main, once the AP and web server are up. */
+
     pthread_t t1;
     pthread_create(&t1, NULL, led_status_thread, NULL);
 
@@ -1674,6 +1697,11 @@ void app_main(void)
     oled_display_init();
 
     initialize_console();
+
+    /* 4G uplink. Runs in its own task, after the SoftAP and web server are up,
+     * so the device is always reachable to fix a bad modem from the /modem page
+     * even if the dial never succeeds. */
+    xTaskCreate(uplink_boot_task, "uplinkboot", 4096, NULL, 3, NULL);
 
     /* Register commands */
     esp_console_register_help_command();

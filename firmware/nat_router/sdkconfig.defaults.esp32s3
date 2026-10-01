@@ -1,5 +1,9 @@
 # ESP32-S3 target overrides
 
 # Use built-in USB_SERIAL_JTAG for console output
-CONFIG_ESP_CONSOLE_UART_DEFAULT=n
-CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=n
+# App logs go to UART0 (CH343) on purpose. The default console is the
+# ESP32-S3 native USB-Serial-JTAG, which this board does not physically
+# expose, so a panic is otherwise silent: the device just resets in a loop
+# with no explanation on any accessible port.
