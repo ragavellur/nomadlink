@@ -125,6 +125,10 @@ static bool at_send(const char *cmd, uint32_t wait_ms, char *out, size_t cap,
     size_t used = 0;
     out[0] = '\0';
 
+    /* Hold the UART for the whole exchange. The NMEA pump shares this driver and
+     * would otherwise consume the "OK" we are waiting for. */
+    if (s_uart_lock) xSemaphoreTake(s_uart_lock, pdMS_TO_TICKS(5000));
+
     /* Drain first: stale bytes from a previous session are the classic source of
      * a reply that looks like it belongs to this command. */
     uart_flush_input(POS_UART_NUM);
@@ -144,6 +148,7 @@ static bool at_send(const char *cmd, uint32_t wait_ms, char *out, size_t cap,
         if (strstr(line, "+CLBS:")) break;
         if (!strncmp(line, "+CGNSSTST:", 10)) break;
     }
+    if (s_uart_lock) xSemaphoreGive(s_uart_lock);
     return used > 0;
 }
 
@@ -151,17 +156,17 @@ static bool at_send(const char *cmd, uint32_t wait_ms, char *out, size_t cap,
  * only safe way to find out: on this modem an absent AT reply is ambiguous. */
 static bool try_escape_to_command_mode(void)
 {
+    if (s_uart_lock) xSemaphoreTake(s_uart_lock, pdMS_TO_TICKS(5000));
     uart_flush_input(POS_UART_NUM);
     vTaskDelay(pdMS_TO_TICKS(1100));      /* 1.1 s guard before */
     uart_write_bytes(POS_UART_NUM, "+++", 3);
     vTaskDelay(pdMS_TO_TICKS(1100));      /* and after */
 
     char line[64];
-    if (read_line(line, sizeof(line), 800) && strstr(line, "OK")) {
-        ESP_LOGI(TAG, "modem was in data mode; escaped to command mode");
-        return true;
-    }
-    return false;
+    bool ok = read_line(line, sizeof(line), 800) && strstr(line, "OK");
+    if (s_uart_lock) xSemaphoreGive(s_uart_lock);
+    if (ok) ESP_LOGI(TAG, "modem was in data mode; escaped to command mode");
+    return ok;
 }
 
 /* --- NMEA --------------------------------------------------------------- */
@@ -225,14 +230,26 @@ static void nmea_task(void *arg)
     size_t len = 0;
 
     for (;;) {
+        /* Never contend with an AT exchange. If the lock is held, skip this pass
+         * and let the command finish; a dropped NMEA byte costs nothing, a stolen
+         * "OK" costs the whole command. */
+        if (s_uart_lock && !xSemaphoreTake(s_uart_lock, 0)) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
+
         size_t avail = 0;
         uart_get_buffered_data_len(POS_UART_NUM, &avail);
-        if (!avail) { vTaskDelay(pdMS_TO_TICKS(10)); continue; }
+        if (!avail) {
+            if (s_uart_lock) xSemaphoreGive(s_uart_lock);
+            vTaskDelay(pdMS_TO_TICKS(10));
+            continue;
+        }
 
         uint8_t c;
         if (uart_read_bytes(POS_UART_NUM, &c, 1, 10) != 1) continue;
 
-        if (c == '$') { len = 0; continue; }
+        if (c == '$') { len = 0; if (s_uart_lock) xSemaphoreGive(s_uart_lock); continue; }
         if (c == '\n') {
             if (len > 8 && line[len - 1] == '*') continue;  /* truncated */
             if (len > 0) {
@@ -251,10 +268,12 @@ static void nmea_task(void *arg)
                 }
             }
             len = 0;
+            if (s_uart_lock) xSemaphoreGive(s_uart_lock);
             continue;
         }
-        if (c == '\r') continue;
+        if (c == '\r') { if (s_uart_lock) xSemaphoreGive(s_uart_lock); continue; }
         if (len < sizeof(line) - 1) line[len++] = (char)c;
+        if (s_uart_lock) xSemaphoreGive(s_uart_lock);
     }
 }
 
@@ -401,9 +420,13 @@ static bool start_gnss(void)
     /* 0,1 is the only variant that works; 1,1 returns ERROR on this firmware. */
     at_send("AT+CGNSSPORTSWITCH=0,1", 4000, reply, sizeof(reply), true);
 
-    xTaskCreate(nmea_task, "nmea", 3072, NULL, 4, NULL);
-
+    /* Order matters: enable the stream FIRST, then let the NMEA pump have the
+     * UART. Starting the pump before this command was the reason the last attempt
+     * produced no position at all -- the pump ate the command's own reply. */
     at_send("AT+CGNSSTST=1", 4000, reply, sizeof(reply), false);
+    ESP_LOGI(TAG, "AT+CGNSSTST=1 reply: %s", reply);
+
+    xTaskCreate(nmea_task, "nmea", 3072, NULL, 4, NULL);
     ESP_LOGI(TAG, "GNSS engine on, NMEA streaming");
     return true;
 }

@@ -407,6 +407,22 @@
       ],
       "evidence": "28 host unit tests pass (RESULT=NMEA-TEST-OK) and the firmware compiles. NOT hardware-verified.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T17:35:00Z",
+      "type": "fix",
+      "summary": "Fix the Location layout regression, restore the UART0 console, and fix NMEA/AT sharing one UART.",
+      "requirement_ids": [],
+      "task_ids": [
+        "TASK-302"
+      ],
+      "changes": [
+        "page_index.h: the Location block no longer closes #container, so buttons and layout are untouched.",
+        "sdkconfig.defaults.esp32s3: console back on UART0 so app logs are visible on the CH343.",
+        "position.c: AT+CGNSSTST=1 is now sent before the NMEA pump starts, and both hold s_uart_lock."
+      ],
+      "evidence": "Compiles (1396336 bytes) and 28 NMEA tests pass. The position path is still NOT hardware-verified.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

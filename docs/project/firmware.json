@@ -1,6 +1,6 @@
 {
   "product": "NomadLink One",
-  "version": "0.6.0-position",
+  "version": "0.6.1-position2",
   "status": "BASE + 4G UPLINK (deferred boot), built from vendored source. NOT yet hardware-verified. GNSS, camera and SD still NOT present.",
   "summary": "Flash the ESP32-S3 router firmware directly from the browser. No command line or Python installation required.",
   "chip": "ESP32-S3",
@@ -30,7 +30,7 @@
     {
       "file": "firmware/nomadlink.bin",
       "offset": 131072,
-      "size": 1392432
+      "size": 1396336
     }
   ],
   "base_note": "Base plus an A7670E 4G uplink over UART (components/modem_4g) with a /modem web page to choose WiFi vs 4G. The 4G stack is started from its own task 2 s into boot, AFTER the SoftAP and web server are up, so a modem problem can never stop the AP coming up. RGB LED signalling is compiled in but DISABLED by default (the 0.2.0-4g.1 loop was traced to code running before AP start; the LED RMT allocation is the prime suspect). App console is UART0 so panics are visible on the CH343.",
@@ -40,7 +40,7 @@
     "manifest_and_binaries_served": "PENDING - set after push.",
     "actual_flash_to_device": "PASS for 0.1.0-base.1 ONLY (TEST-810). NOT flashed for 0.3.0-4g.2. 0.2.0-4g.1 WAS flashed and FAILED: no SoftAP, reset loop rst:0xc every ~490 ms.",
     "on_device_runtime": "NOT VERIFIED for 0.3.0-4g.2. No hardware run. Base path proven separately by TEST-810.",
-    "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app 0x153f30 / 1392432 bytes)",
+    "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app 0x154e70 / 1396336 bytes)",
     "compile_gate_rejects_broken_source": "PASS - invalid C injected into main/portmap.c, gate exited 1 naming file and line; reverted and tree built again",
     "served_binary_is_local_build": "PASS - payload staged by scripts/project-tracker/stage-firmware.sh from build_esp32s3, offsets asserted against flash_args (0x0/0x8000/0xf000/0x20000)",
     "branding_in_flashed_bytes": "PASS - in nomadlink.bin: 'NomadLink' 4 occurrences; 'ESP32 NAT Router' 0; 'ESP32_NAT_Router' 0; 'esp32-nat-router' 0. Checked by scanning the staged payload, not the source.",
@@ -52,8 +52,11 @@
     "unexplained_panic": "OPEN DEFECT, NOT ROOT-CAUSED. 0.4.0-4gfb panicked ~1.9 s after boot, right after 'vpn_mgr: Initializing SNTP'. Backtrace resolves to esp_event_loop_run (esp_event.c:727) -> xSemaphoreGiveRecursive(loop->mutex) -> xQueueGenericSend (queue.c:936 configASSERT(pxQueue)), i.e. the default event loop's mutex handle is NULL. No esp_event_loop_delete exists anywhere in the tree and led_strip_status_init() is dormant (ls_gpio unset), so neither explanation holds. Recorded as FAIL with raw backtrace; cause UNKNOWN. Every build that added code to the base (0.2.0-4g.1, 0.3.0-4g.2, 0.3.1-4g.3, 0.4.0-4gfb) panicked; only the untouched base (0.1.0-base.1) has ever run.",
     "position_nmea_unit_tests": "PASS - 28 checks, 0 failures, run on the host as part of `make check` (make test-position). Covers acceptance of a real GGA fix, southern/western hemispheres, and rejection of quality 0, sats=99, sats=33, sats=0, out-of-range coordinates, minutes>=60, bad checksum, missing checksum and truncated sentences.",
     "position_two_real_bugs_found_by_tests": "1. GGA latitude/longitude are ddmm.mmmm, not decimal degrees. The first version read them with strtod alone, so 4807.0380 became 4807, failed the range guard, and EVERY real fix was silently dropped. 2. dm_to_deg returns NaN for malformed fields, and every comparison against NaN is false, so NaN passed the range check. Both were caught by the unit tests before the code reached hardware.",
-    "position_not_yet_verified": "NOT HARDWARE-VERIFIED. The AT sequence is ported from firmware/baseline/position_service, which measured working, but nothing here has run on the board: no LBS fix, no GNSS fix, no page render with a coordinate.",
-    "4g_routing": "Still withdrawn. No PPP, no default route, no NAPT. The modem UART is used for AT/NMEA only."
+    "position_not_yet_verified": "STILL NOT HARDWARE-VERIFIED. The owner flashed 0.6.0-position: the router ran but no lat/lon appeared. No position log lines were visible because of the console fault above, so the AT sequence's actual behaviour is still unknown.",
+    "4g_routing": "Still withdrawn. No PPP, no default route, no NAPT. The modem UART is used for AT/NMEA only.",
+    "layout_regression_fixed": "The first Location block emitted a </div> that closed #container early, so Location and the nav buttons rendered outside the container and went full-width, and the button row moved. Fixed by emitting no </div>: #container stays open across status, Location and buttons, and the block reuses the existing .status-table CSS unchanged.",
+    "console_restored_to_uart0": "Restored CONFIG_ESP_CONSOLE_UART_DEFAULT=y / USB_SERIAL_JTAG=n / UART_NUM=0. This was lost when the verified base was restored, so app logs went to the ESP32-S3's native USB-Serial-JTAG, which this board does not expose. The owner saw ROM lines only and no position service output at all. That silence was the missing evidence, not a working board.",
+    "uart_ownership_bug": "start_gnss() created the NMEA pump BEFORE sending AT+CGNSSTST=1, so the pump consumed the command's own reply off the shared UART. s_uart_lock was declared but never taken. Fixed: the stream command is sent first, the pump starts after, and both AT and NMEA now hold a mutex so neither can steal bytes from the other."
   },
   "toolchain": "ESP-IDF 5.5.x (installed at ~/esp/esp-idf-5.5.4). The base does NOT build on IDF 6.x: main requires component 'json', which moved to the component manager.",
   "compile_gate": "make product / make check -> scripts/project-tracker/build-product.sh",
@@ -67,7 +70,7 @@
     "note": "The MQTT topic prefix stays esp32_nat_router: it is a functional broker identifier, not branding, and renaming it would break existing subscriptions."
   },
   "reproducibility": "NOT byte-reproducible, by upstream design: CMakeLists.txt force-rebuilds esp_app_desc.c so __DATE__/__TIME__ stay current. Two builds of identical source differ in ~67 bytes of the app descriptor only, same length. Do not treat a hash mismatch as a corrupt payload; the freshness guard is timestamp-based for this reason.",
-  "tag": "UNVERIFIED-POSITION",
+  "tag": "UNVERIFIED-POSITION2",
   "ui_present_in_base": [
     "/ (dashboard)",
     "/setup (first-run: uplink SSID+password, AP SSID+password)",

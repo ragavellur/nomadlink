@@ -184,14 +184,17 @@ font-size: 0.8rem;\
 /* Location section. Rows are streamed by the handler from position_get(), which
  * always carries an explicit source, so the page can never show a coordinate
  * without saying whether it came from GPS or the cellular network. */
+/* NOTE: deliberately no </div> here. #container is opened once in the page body
+ * and stays open across the status table, this section and the nav buttons, so
+ * every block inherits the existing CSS. An earlier version closed it around the
+ * Location block, which pushed Location and the buttons outside the container and
+ * made both render full-width. Reuse .status-table exactly as-is. */
 #define INDEX_CHUNK_LOCATION_OPEN "\
-</div>\
 <h2>Location</h2>\
 <div class='status-table'>\
 <table>"
 #define INDEX_CHUNK_LOCATION_CLOSE "\
-</table>\
-</div>"
+</table>"
 
 #if !CONFIG_ETH_UPLINK
 #define INDEX_CHUNK_BUTTONS "\
