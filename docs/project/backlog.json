@@ -354,14 +354,14 @@
         "REQ-003"
       ],
       "priority": "P0",
-      "status": "BACKLOG",
+      "status": "IN_PROGRESS",
       "dependencies": [
         "TASK-002"
       ],
       "description": "Own the UART, run the PWRKEY power-on sequence, drive the data bearer, expose RSSI/registration/operator. Must use AT+CIPOPEN for sockets, never AT+CIPSTART.",
       "acceptance_criteria": [
         "Modem reaches +CEREG: 0,1 within 60 s of power-on",
-        "PWRKEY GPIO42 pulse sequence is performed exactly once per boot",
+        "Module-enable rail GPIO33 asserted HIGH; NO PWRKEY pulse (PWRKEY does not reach this board - corrected 2026-09-30, supersedes the old 'PWRKEY GPIO42' criterion)",
         "Driver exposes signal strength and operator",
         "A non-CIPSTART socket path is used"
       ],
@@ -378,21 +378,23 @@
       ],
       "verification": {
         "status": "NOT_VERIFIED",
-        "evidence": [],
+        "evidence": [
+          "make product -> nat_router ok (ESP-IDF 5.5.4, app 0x15cdd0 / 1428944 bytes), commit 8b09974"
+        ],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "Code implemented and compile-gated only (make product ok, ESP-IDF 5.5.4). No hardware run: the 4G image has not been flashed. Existing #20 experiment (TASK-020) proved the PPP data path on the Airtel SIM on the Arduino prototype, but not on this build."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "8b09974",
         "branch": "main"
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
+        "started_at": "2026-10-01T12:05:00Z",
         "completed_at": "",
         "verified_at": "",
-        "last_updated_at": "2026-09-29T00:00:00Z"
+        "last_updated_at": "2026-10-01T12:05:00Z"
       }
     },
     {
@@ -437,7 +439,7 @@
         "evidence": [],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "Partially built (uplink selector + route priority in main/uplink_manager.c, commit 8b09974) but the failover policy is an open decision from the owner and none of the measurement acceptance criteria are met."
       },
       "git": {
         "commit_sha": "",
@@ -831,7 +833,7 @@
         "REQ-003"
       ],
       "priority": "P1",
-      "status": "BACKLOG",
+      "status": "IN_PROGRESS",
       "dependencies": [
         "TASK-103"
       ],
@@ -862,18 +864,18 @@
         "evidence": [],
         "verified_by": "",
         "verified_at": "",
-        "reason": ""
+        "reason": "The /modem page renders uplink mode, modem state, AT+CSQ signal and operator. Compile-gated only; no hardware run."
       },
       "git": {
-        "commit_sha": "",
+        "commit_sha": "8b09974",
         "branch": "main"
       },
       "timestamps": {
         "created_at": "2026-09-29T00:00:00Z",
-        "started_at": "",
+        "started_at": "2026-10-01T12:05:00Z",
         "completed_at": "",
         "verified_at": "",
-        "last_updated_at": "2026-09-29T00:00:00Z"
+        "last_updated_at": "2026-10-01T12:05:00Z"
       }
     },
     {
