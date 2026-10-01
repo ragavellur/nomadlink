@@ -389,6 +389,24 @@
       ],
       "evidence": "Build 1374544 bytes, same size as the TEST-810 image. NOT byte-identical (ESP-IDF stamps compile time). The panic cause is NOT understood.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T17:15:00Z",
+      "type": "feature",
+      "summary": "Position service: cellular LBS with GNSS upgrade, shown in a new Location section on the web page.",
+      "requirement_ids": [],
+      "task_ids": [
+        "TASK-302"
+      ],
+      "changes": [
+        "New components/position: AT over UART1 GPIO17/18, GPIO33 enable rail, no PWRKEY pulse.",
+        "AT+CLBS=1,1 for LBS (lon comes first; retries transient ret_codes 8/9/10/11/12).",
+        "AT+CGNSSPWR=1 / AT+CGNSSPORTSWITCH=0,1 / AT+CGNSSTST=1 for GNSS; engine powered before the LBS wait so acquisition overlaps.",
+        "New Location section on the index page showing lat, lon, source (GPS vs Cellular LBS), accuracy, satellites and sample age.",
+        "GGA parsing extracted to nmea.c with no ESP dependency, plus 28 host unit tests wired into `make check`."
+      ],
+      "evidence": "28 host unit tests pass (RESULT=NMEA-TEST-OK) and the firmware compiles. NOT hardware-verified.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

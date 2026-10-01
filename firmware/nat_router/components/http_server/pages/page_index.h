@@ -181,6 +181,18 @@ font-size: 0.8rem;\
 </table>\
 </div>"
 
+/* Location section. Rows are streamed by the handler from position_get(), which
+ * always carries an explicit source, so the page can never show a coordinate
+ * without saying whether it came from GPS or the cellular network. */
+#define INDEX_CHUNK_LOCATION_OPEN "\
+</div>\
+<h2>Location</h2>\
+<div class='status-table'>\
+<table>"
+#define INDEX_CHUNK_LOCATION_CLOSE "\
+</table>\
+</div>"
+
 #if !CONFIG_ETH_UPLINK
 #define INDEX_CHUNK_BUTTONS "\
 <div class='button-container'>\

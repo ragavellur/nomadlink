@@ -37,6 +37,7 @@
 #include "lwip/sockets.h"
 
 #include "pages.h"
+#include "position.h"
 #include "favicon_png.h"
 #include "router_globals.h"
 #include "vpn_config.h"
@@ -1438,6 +1439,64 @@ static esp_err_t index_get_handler(httpd_req_t *req)
 
     /* Close status table */
     SEND_CHUNK(req, INDEX_CHUNK_STATUS_CLOSE, HTTPD_RESP_USE_STRLEN);
+
+    /* --- Location section ---
+     * Coordinates plus the source that produced them. A section with no fix says
+     * so explicitly and never shows a borrowed or guessed coordinate. */
+    position_t pos;
+    position_get(&pos);
+
+    SEND_CHUNK(req, INDEX_CHUNK_LOCATION_OPEN, HTTPD_RESP_USE_STRLEN);
+
+    char loc_row[512];
+    const char *src_colour = pos.has_fix ? "#0a0" : "#888";
+
+    snprintf(loc_row, sizeof(loc_row),
+             "<tr><td>Source:</td><td style='color: %s;'>%s</td></tr>",
+             src_colour,
+             pos.has_fix ? position_source_str(pos.source) : "no position yet");
+    SEND_CHUNK(req, loc_row, HTTPD_RESP_USE_STRLEN);
+
+    if (pos.has_fix) {
+        snprintf(loc_row, sizeof(loc_row),
+                 "<tr><td>Latitude:</td><td>%.6f</td></tr>", pos.lat);
+        SEND_CHUNK(req, loc_row, HTTPD_RESP_USE_STRLEN);
+
+        snprintf(loc_row, sizeof(loc_row),
+                 "<tr><td>Longitude:</td><td>%.6f</td></tr>", pos.lon);
+        SEND_CHUNK(req, loc_row, HTTPD_RESP_USE_STRLEN);
+
+        /* Accuracy is -1 when unknown, and must be shown as such rather than 0. */
+        if (pos.accuracy_m > 0) {
+            snprintf(loc_row, sizeof(loc_row),
+                     "<tr><td>Accuracy:</td><td>~%d m</td></tr>", pos.accuracy_m);
+        } else {
+            snprintf(loc_row, sizeof(loc_row),
+                     "<tr><td>Accuracy:</td><td style='color: #888;'>not reported</td></tr>");
+        }
+        SEND_CHUNK(req, loc_row, HTTPD_RESP_USE_STRLEN);
+
+        /* LBS has no satellite count. Saying "0 sats" would read as a failed fix. */
+        if (pos.source == POSITION_SOURCE_GNSS) {
+            snprintf(loc_row, sizeof(loc_row),
+                     "<tr><td>Satellites:</td><td>%d</td></tr>", pos.sats);
+        } else {
+            snprintf(loc_row, sizeof(loc_row),
+                     "<tr><td>Satellites:</td><td style='color: #888;'>n/a (cell network)</td></tr>");
+        }
+        SEND_CHUNK(req, loc_row, HTTPD_RESP_USE_STRLEN);
+
+        /* Age of the sample, so a stale coordinate is never read as current. */
+        char age_str[32];
+        int64_t age_s = (esp_timer_get_time() / 1000) - pos.updated_ms;
+        if (age_s < 0) age_s = 0;
+        format_uptime((unsigned long)age_s, age_str, sizeof(age_str));
+        snprintf(loc_row, sizeof(loc_row),
+                 "<tr><td>Last update:</td><td>%s ago</td></tr>", age_str);
+        SEND_CHUNK(req, loc_row, HTTPD_RESP_USE_STRLEN);
+    }
+
+    SEND_CHUNK(req, INDEX_CHUNK_LOCATION_CLOSE, HTTPD_RESP_USE_STRLEN);
 
     /* Navigation buttons */
     SEND_CHUNK(req, INDEX_CHUNK_BUTTONS, HTTPD_RESP_USE_STRLEN);

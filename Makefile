@@ -13,12 +13,25 @@ help:
 	@echo ""
 	@echo "check must pass before any commit."
 
-check: validate secrets render baseline product
+check: validate secrets render baseline test-position product
 	@echo ""
 	@echo "All gates passed."
 
 validate:
 	@python3 scripts/project-tracker/validate.py
+
+# Host unit tests for the NMEA reader. It is pure C with no ESP-IDF dependency
+# precisely so it can be run here. Part of `check` because GGA parsing is where a
+# previous build shipped satsUsed=99 unnoticed -- and where the first version of
+# this parser read ddmm.mmmm as decimal degrees and dropped every real fix.
+test-position:
+	@echo "==> position: NMEA unit tests (host)"
+	@cc -std=c11 -Wall -Wextra -Wno-unused-parameter \
+	  -I firmware/nat_router/components/position/include \
+	  -o /tmp/nomadlink_test_nmea \
+	  firmware/nat_router/components/position/nmea.c \
+	  firmware/nat_router/components/position/test/test_nmea.c -lm
+	@/tmp/nomadlink_test_nmea
 
 render:
 	@python3 scripts/project-tracker/render.py

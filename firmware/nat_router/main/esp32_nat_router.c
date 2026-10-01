@@ -67,6 +67,7 @@
 #include "remote_console.h"
 #include "syslog_client.h"
 #include "oled_display.h"
+#include "position.h"
 #include "led_strip_status.h"
 #if !defined(CONFIG_IDF_TARGET_ESP32C5)
 #include "mdns.h"
@@ -1683,6 +1684,14 @@ void app_main(void)
 #if CONFIG_MQTT_HOMEASSISTANT
     mqtt_ha_init();
 #endif
+
+    /* Position service: cellular LBS first, upgraded to GNSS when a real fix
+     * arrives (ADR-006). position_init() only spawns a task; the modem is opened
+     * from inside it, 10 s later. It is called HERE, after the SoftAP and the web
+     * server exist, because a modem that hangs or faults must never be able to
+     * stop this device from routing -- the 4G builds that put modem work before
+     * the AP came up had no AP to recover through. */
+    position_init();
 
     /* Prompt to be printed before each line.
      * This can be customized, made dynamic, etc.
