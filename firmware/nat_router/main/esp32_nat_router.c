@@ -68,7 +68,6 @@
 #include "syslog_client.h"
 #include "oled_display.h"
 #include "led_strip_status.h"
-#include "modem_fallback.h"
 #if !defined(CONFIG_IDF_TARGET_ESP32C5)
 #include "mdns.h"
 #endif
@@ -1362,14 +1361,7 @@ void app_main(void)
         ESP_LOGI(TAG, "LED low-active mode enabled");
     }
 
-    /* Addressable LED strip GPIO from NVS.
-     *
-     * NomadLink board has one WS2812B on GPIO38 (measured by hw_selftest.ino),
-     * but the LED strip is left DISABLED for now. Enabling it made
-     * led_strip_status_init() allocate an RMT channel on every boot, and the
-     * 0.2.0-4g.1 image reset in a loop with no SoftAP -- this is the prime
-     * suspect and it is not worth shipping until it is proven on this board.
-     * Re-enable by storing 38 under "ls_gpio" in NVS. */
+    // Load addressable LED strip GPIO from NVS (default -1 = disabled)
     int led_strip_gpio_setting = -1;
     if (get_config_param_int("ls_gpio", &led_strip_gpio_setting) == ESP_OK) {
         led_strip_gpio = led_strip_gpio_setting;
@@ -1619,13 +1611,6 @@ void app_main(void)
         }
     }
 
-    /* NOTE: the A7670E is deliberately NOT touched here.
-     *
-     * The SoftAP only starts further down (the ap_disabled block), so anything
-     * that fails before it leaves the device with no AP at all -- which is what
-     * the 4G builds did. The modem fallback task is started at the very end of
-     * app_main instead, and it only ever dials when the STA has no address. */
-
     pthread_t t1;
     pthread_create(&t1, NULL, led_status_thread, NULL);
 
@@ -1736,11 +1721,6 @@ void app_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
-
-    /* 4G fallback for the ESP32 itself. Started here, after the SoftAP and the
-     * web server exist, so a modem fault can never leave the device with no AP.
-     * It stays dormant while the STA has an address; see modem_fallback.c. */
-    modem_fallback_init();
 
     /* Main loop */
     while(true) {

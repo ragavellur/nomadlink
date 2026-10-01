@@ -1,6 +1,6 @@
 {
   "product": "NomadLink One",
-  "version": "0.4.0-4gfb",
+  "version": "0.5.0-stable",
   "status": "BASE + 4G UPLINK (deferred boot), built from vendored source. NOT yet hardware-verified. GNSS, camera and SD still NOT present.",
   "summary": "Flash the ESP32-S3 router firmware directly from the browser. No command line or Python installation required.",
   "chip": "ESP32-S3",
@@ -30,7 +30,7 @@
     {
       "file": "firmware/nomadlink.bin",
       "offset": 131072,
-      "size": 1425552
+      "size": 1374544
     }
   ],
   "base_note": "Base plus an A7670E 4G uplink over UART (components/modem_4g) with a /modem web page to choose WiFi vs 4G. The 4G stack is started from its own task 2 s into boot, AFTER the SoftAP and web server are up, so a modem problem can never stop the AP coming up. RGB LED signalling is compiled in but DISABLED by default (the 0.2.0-4g.1 loop was traced to code running before AP start; the LED RMT allocation is the prime suspect). App console is UART0 so panics are visible on the CH343.",
@@ -40,14 +40,16 @@
     "manifest_and_binaries_served": "PENDING - set after push.",
     "actual_flash_to_device": "PASS for 0.1.0-base.1 ONLY (TEST-810). NOT flashed for 0.3.0-4g.2. 0.2.0-4g.1 WAS flashed and FAILED: no SoftAP, reset loop rst:0xc every ~490 ms.",
     "on_device_runtime": "NOT VERIFIED for 0.3.0-4g.2. No hardware run. Base path proven separately by TEST-810.",
-    "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app 0x15c090 / 1425552 bytes)",
+    "vendored_source_compiles": "PASS - make product: nat_router ok, app 1374544 bytes",
     "compile_gate_rejects_broken_source": "PASS - invalid C injected into main/portmap.c, gate exited 1 naming file and line; reverted and tree built again",
     "served_binary_is_local_build": "PASS - payload staged by scripts/project-tracker/stage-firmware.sh from build_esp32s3, offsets asserted against flash_args (0x0/0x8000/0xf000/0x20000)",
     "branding_in_flashed_bytes": "PASS - in nomadlink.bin: 'NomadLink' 4 occurrences; 'ESP32 NAT Router' 0; 'ESP32_NAT_Router' 0; 'esp32-nat-router' 0. Checked by scanning the staged payload, not the source.",
     "root_cause_4g_1": "ROOT CAUSE FOUND for the 0.2.0-4g.1 no-AP loop and the 0.3.0-4g.2 connect/disconnect loop: main/uplink_manager.c called esp_event_handler_instance_register(base, id, NULL, uplink_esp_event_cb, NULL) -- handler and user-data pointer swapped. Both are pointers so it compiled silently, then tripped assert(event_handler) at esp-idf-5.5.4/components/esp_event/esp_event.c:787. In 0.2.0-4g.1 this ran before the SoftAP starts (esp32_nat_router.c:1633) so the device reset with no AP; in 0.3.0-4g.2 it ran 2 s later, so the AP came up and then dropped every cycle. The RGB LED was NOT involved.",
     "panic_backtrace_resolved": "PASS - captured on UART0 and resolved with addr2line against nomadlink.elf: uplink_boot_task (esp32_nat_router.c:333) -> uplink_init (uplink_manager.c:261) -> esp_event_handler_instance_register (default_event_loop.c:38) -> ..._with (esp_event.c:856) -> esp_event_handler_register_with_internal (esp_event.c:787) assert.",
     "4g_routing_withdrawn": "4G AS A ROUTER UPLINK IS WITHDRAWN at the owner's instruction. The /modem uplink selector page, its handlers, the nav link and main/uplink_manager.c are all removed. The driver no longer calls ppp_set_default(), so it cannot become the lwIP default route and therefore cannot send SoftAP clients out over 4G. 4G now exists only as main/modem_fallback.c: a link for the ESP32 itself, dialled only while the WiFi STA has had no address for 15 s. With WiFi up it stays dormant.",
-    "not_yet_verified": "NOT HARDWARE-VERIFIED. No part of the 4G path has run on the board. The owner has not yet flashed 0.4.0-4gfb."
+    "not_yet_verified": "NOT HARDWARE-VERIFIED. No part of the 4G path has run on the board. The owner has not yet flashed 0.4.0-4gfb.",
+    "4g_withdrawn_entirely": "ALL A7670E 4G WORK REMOVED from the product tree. components/modem_4g, main/modem_fallback.c/.h, main/led_strip_status.c, the /modem page and all sdkconfig PPP/console overrides are deleted. The firmware/nat_router source tree is now byte-for-byte the same file set as the verified base commit 28d137a. The rebuild is 1374544 bytes, the same size as the TEST-810 image the owner ran successfully; it is not byte-identical because ESP-IDF stamps compile time into the binary.",
+    "unexplained_panic": "OPEN DEFECT, NOT ROOT-CAUSED. 0.4.0-4gfb panicked ~1.9 s after boot, right after 'vpn_mgr: Initializing SNTP'. Backtrace resolves to esp_event_loop_run (esp_event.c:727) -> xSemaphoreGiveRecursive(loop->mutex) -> xQueueGenericSend (queue.c:936 configASSERT(pxQueue)), i.e. the default event loop's mutex handle is NULL. No esp_event_loop_delete exists anywhere in the tree and led_strip_status_init() is dormant (ls_gpio unset), so neither explanation holds. Recorded as FAIL with raw backtrace; cause UNKNOWN. Every build that added code to the base (0.2.0-4g.1, 0.3.0-4g.2, 0.3.1-4g.3, 0.4.0-4gfb) panicked; only the untouched base (0.1.0-base.1) has ever run."
   },
   "toolchain": "ESP-IDF 5.5.x (installed at ~/esp/esp-idf-5.5.4). The base does NOT build on IDF 6.x: main requires component 'json', which moved to the component manager.",
   "compile_gate": "make product / make check -> scripts/project-tracker/build-product.sh",
@@ -61,7 +63,7 @@
     "note": "The MQTT topic prefix stays esp32_nat_router: it is a functional broker identifier, not branding, and renaming it would break existing subscriptions."
   },
   "reproducibility": "NOT byte-reproducible, by upstream design: CMakeLists.txt force-rebuilds esp_app_desc.c so __DATE__/__TIME__ stay current. Two builds of identical source differ in ~67 bytes of the app descriptor only, same length. Do not treat a hash mismatch as a corrupt payload; the freshness guard is timestamp-based for this reason.",
-  "tag": "UNVERIFIED-4GFB",
+  "tag": "REVERT-TO-VERIFIED-BASE",
   "ui_present_in_base": [
     "/ (dashboard)",
     "/setup (first-run: uplink SSID+password, AP SSID+password)",
@@ -78,6 +80,6 @@
     "A7670E 4G PPP controls (dial/disconnect, signal, operator)",
     "A WiFi-vs-4G uplink selector - the base hard-assumes the STA is the only uplink, so this concept does not exist yet"
   ],
-  "rollback_note": "0.2.0-4g.1 bricked the AP and 0.3.0-4g.2 looped -- both one swapped-argument bug, fixed in 0.3.1-4g.3. 0.4.0-4gfb removes 4G routing entirely per the owner's instruction. 0.1.0-base.1 (1374544 B) remains the last hardware-verified image (TEST-810).",
+  "rollback_note": "0.2.0-4g.1 no AP, 0.3.0-4g.2 reconnect loop, 0.3.1-4g.3 same family, 0.4.0-4gfb event-loop mutex panic. 0.5.0-stable is the base restored: all 4G code removed. 0.1.0-base.1 / 0.5.0-stable are the only images ever verified on hardware (TEST-810).",
   "base_tag": "NAT_ROUTER_WORKING"
 }

@@ -372,6 +372,23 @@
       ],
       "evidence": "Compiles (1425552 bytes). No hardware test yet; the routing guarantee is a code-level fact (no default route, no NAPT call) that is NOT yet confirmed on the board.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T16:35:00Z",
+      "type": "revert",
+      "summary": "Remove all A7670E 4G work from the product tree and restore the verified base.",
+      "requirement_ids": [],
+      "task_ids": [
+        "TASK-103",
+        "TASK-107"
+      ],
+      "changes": [
+        "Deleted components/modem_4g, main/modem_fallback.c/.h, main/led_strip_status.c, the /modem page and all sdkconfig PPP/console overrides.",
+        "firmware/nat_router source file set is now identical to verified base commit 28d137a; rebuild is 1374544 bytes.",
+        "Recorded 0.4.0-4gfb's event-loop mutex panic as an OPEN defect with cause UNKNOWN rather than a fixed one."
+      ],
+      "evidence": "Build 1374544 bytes, same size as the TEST-810 image. NOT byte-identical (ESP-IDF stamps compile time). The panic cause is NOT understood.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

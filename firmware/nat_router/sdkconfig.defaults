@@ -39,25 +39,6 @@ CONFIG_LWIP_L2_TO_L3_COPY=y
 CONFIG_LWIP_IP_FORWARD=y  
 CONFIG_LWIP_IPV4_NAPT=y
 
-# PPP over serial - the A7670E 4G uplink. Everything the 4G path needs that the
-# Arduino base got for free from the core's default sdkconfig.
-CONFIG_LWIP_PPP_SUPPORT=y
-CONFIG_LWIP_PPP_ENABLE_IPV4=y
-# The A7670E is IPv4-only over PPP. Leaving IPv6CP on just stalls Phase Network
-# until it times out, and costs a code path we cannot use.
-CONFIG_LWIP_PPP_ENABLE_IPV6=n
-CONFIG_LWIP_PPP_PAP_SUPPORT=y
-CONFIG_LWIP_PPP_CHAP_SUPPORT=y
-# Gated behind PPP_NOTIFY_PHASE in lwip's ppp.h. Without it the state machine
-# gives us no way to learn when IPCP assigned an address, which is the only
-# honest signal that the 4G link can carry traffic.
-CONFIG_LWIP_PPP_NOTIFY_PHASE_SUPPORT=y
-# Kconfig defaults VJ header compression to y, and its own help text says to
-# disable it when NAPT runs on the PPP interface: the compressed IP header can
-# be misread in NAT and the packet is dropped with no error anywhere. This build
-# NATs all 4G traffic (CONFIG_LWIP_IPV4_NAPT=y above), so it must be off.
-CONFIG_LWIP_PPP_VJ_HEADER_COMPRESSION=n
-
 # DHCP server
 CONFIG_LWIP_DHCPS_MAX_STATION_NUM=16
 
