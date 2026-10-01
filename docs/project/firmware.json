@@ -1,7 +1,7 @@
 {
   "product": "NomadLink One",
-  "version": "0.2.0-4g.1",
-  "status": "BASE + 4G UPLINK, built from vendored source. NOT yet hardware-verified. GNSS, camera and SD still NOT present.",
+  "version": "0.1.0-base.1",
+  "status": "BASE ONLY, built from vendored source. A7670E 4G, GNSS, camera and SD features NOT yet present.",
   "summary": "Flash the ESP32-S3 router firmware directly from the browser. No command line or Python installation required.",
   "chip": "ESP32-S3",
   "upstream_project": "esp32_nat_router",
@@ -30,20 +30,20 @@
     {
       "file": "firmware/nomadlink.bin",
       "offset": 131072,
-      "size": 1428944
+      "size": 1374544
     }
   ],
-  "base_note": "Built from the vendored esp32_nat_router 2.4.17 source in this repository. On top of the base this image adds an explicit uplink selector (WiFi vs A7670E 4G over UART) with a /modem web page, an A7670E PPP driver (components/modem_4g) and RGB status signalling (docs/product/led-signals.md). AP SSID still broadcasts NomadLink; mDNS hostname nomadlink.local. GNSS, camera and SD are not yet in this image.",
+  "base_note": "Built from the vendored esp32_nat_router 2.4.17 source in this repository, not upstream's prebuilt image. AP SSID broadcasts as NomadLink and the mDNS hostname is nomadlink.local. The A7670E 4G, GNSS, camera and SD features are not yet in this image.",
   "prereq_note": "Recommended: Chrome, Edge or Opera. Close all other serial monitors first. Browser flashing writes bootloader, partition table, otadata and app.",
   "verification": {
     "web_installer_mount": "PASS - esp-web-install-button custom element defined, manifest attribute set, button visible (Chrome)",
-    "manifest_and_binaries_served": "PASS - HTTP 200 for manifest and all four parts at the declared offsets. Sizes for this build: 17664 / 3072 / 8192 / 1428944 bytes.",
-    "actual_flash_to_device": "PASS for 0.1.0-base.1 ONLY (TEST-810, 2026-10-01) - flashed by the project owner from the published web installer; AP broadcast SSID 'NomadLink'. The 0.2.0-4g.1 image has NOT been flashed by anyone yet.",
-    "on_device_runtime": "PASS for the BASE PATH ONLY - boots, broadcasts 'NomadLink', and a client behind the AP reaches the internet (owner-confirmed, TEST-810), so SoftAP + DHCP + NAPT + forwarding + WiFi STA uplink all work. NOT verified for 0.2.0-4g.1: nothing in this image has run on hardware. Not measured anywhere: throughput in Mbps, load behaviour.",
-    "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app binary size 0x15cdd0 / 1428944 bytes)",
+    "manifest_and_binaries_served": "PASS - HTTP 200 for manifest and all four parts at the declared offsets; sizes 17664 / 3072 / 8192 / 1370000 bytes match the manifest",
+    "actual_flash_to_device": "PASS - flashed by the project owner from the published web installer on 2026-10-01; AP broadcast SSID 'NomadLink'. Recorded as TEST-810.",
+    "on_device_runtime": "PASS for the base path - boots, broadcasts 'NomadLink', and a client behind the AP reaches the internet (owner-confirmed, TEST-810), so SoftAP + DHCP + NAPT + forwarding + STA uplink all work. Not measured: throughput in Mbps, load behaviour. No 4G/GNSS/camera/SD in this image.",
+    "vendored_source_compiles": "PASS - make product: nat_router ok (ESP-IDF 5.5.4, app binary size 0x14f970 / 1374576 bytes)",
     "compile_gate_rejects_broken_source": "PASS - invalid C injected into main/portmap.c, gate exited 1 naming file and line; reverted and tree built again",
     "served_binary_is_local_build": "PASS - payload staged by scripts/project-tracker/stage-firmware.sh from build_esp32s3, offsets asserted against flash_args (0x0/0x8000/0xf000/0x20000)",
-    "branding_in_flashed_bytes": "PASS - in nomadlink.bin: 'NomadLink' present; upstream brand strings absent. Checked by scanning the staged payload, not the source."
+    "branding_in_flashed_bytes": "PASS - in nomadlink.bin: 'NomadLink' 4 occurrences; 'ESP32 NAT Router' 0; 'ESP32_NAT_Router' 0; 'esp32-nat-router' 0. Checked by scanning the staged payload, not the source."
   },
   "toolchain": "ESP-IDF 5.5.x (installed at ~/esp/esp-idf-5.5.4). The base does NOT build on IDF 6.x: main requires component 'json', which moved to the component manager.",
   "compile_gate": "make product / make check -> scripts/project-tracker/build-product.sh",
@@ -57,12 +57,11 @@
     "note": "The MQTT topic prefix stays esp32_nat_router: it is a functional broker identifier, not branding, and renaming it would break existing subscriptions."
   },
   "reproducibility": "NOT byte-reproducible, by upstream design: CMakeLists.txt force-rebuilds esp_app_desc.c so __DATE__/__TIME__ stay current. Two builds of identical source differ in ~67 bytes of the app descriptor only, same length. Do not treat a hash mismatch as a corrupt payload; the freshness guard is timestamp-based for this reason.",
-  "tag": "UNVERIFIED-4G.1",
+  "tag": "NAT_ROUTER_WORKING",
   "ui_present_in_base": [
     "/ (dashboard)",
     "/setup (first-run: uplink SSID+password, AP SSID+password)",
     "/scan (WiFi scan)",
-    "/modem (uplink selector: WiFi vs 4G, APN, 4G status)",
     "/config (full config incl. uplink ssid/password, static IP, AP settings)",
     "/mappings (port mapping)",
     "/firewall (ACL)",
@@ -71,9 +70,8 @@
     "/api/config-export|import"
   ],
   "ui_still_to_build": [
-    "Failover policy decision: when 4G is selected but the dial fails, does the router fall back to WiFi (current code) or keep retrying 4G? Owner has not chosen.",
-    "Ethernet uplink (the UPLINK_ETH mode exists in code but no board interface is wired)"
+    "A7670E 4G PPP controls (dial/disconnect, signal, operator)",
+    "A WiFi-vs-4G uplink selector - the base hard-assumes the STA is the only uplink, so this concept does not exist yet"
   ],
-  "base_tag": "NAT_ROUTER_WORKING",
-  "led_signals_doc": "docs/product/led-signals.md"
+  "rollback_note": "Serves the TEST-810 verified base again (0.1.0-base.1, 1374544 B). A 4G-uplink build (0.2.0-4g.1, 1428944 B) was published on 2026-10-01 and then withdrawn: it did not bring up the SoftAP, so no NomadLink AP was visible and the device was unusable. Root cause localised to code running before the AP starts (esp32_nat_router.c:1633) but not yet isolated. The 4G work is retained in history at commit 8b09974."
 }

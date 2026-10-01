@@ -19,7 +19,6 @@ int led_strip_gpio = -1;
 /* ---- Private state (common) ---- */
 static volatile bool traffic_flag = false;
 static volatile bool factory_reset_flag = false;
-static volatile led_uplink_state_t uplink_state = LED_UPLINK_NONE;
 
 /* ======================================================================
  * ESP32-C5: bit-bang WS2812 via direct GPIO register writes
@@ -110,31 +109,6 @@ void led_strip_status_update(void)
             ws2812_send(40, 60, 60);
             return;
         }
-    }
-
-
-    /* Uplink indication. These override the generic colouring below.
-     *
-     * Rates (status thread ticks every 50 ms):
-     *   fast = (tick % 4) < 2  -> 200 ms period -> 5 Hz
-     *   slow = (tick % 20) < 10 -> 1000 ms period -> 1 Hz
-     *
-     * "fast red" and "fast green" share the rate but never the colour, and the
-     * slow green is half the rate of the fast green, so 4G vs WiFi is readable
-     * at a glance without a label. */
-    switch (uplink_state) {
-    case LED_UPLINK_NO_NETWORK:              /* 4G selected, no network */
-        strip_set_rgb(((tick % 4) < 2) ? 60 : 0, 0, 0);
-        return;
-    case LED_UPLINK_4G_UP:                   /* connected via 4G */
-        strip_set_rgb(0, ((tick % 4) < 2) ? 60 : 0, 0);
-        return;
-    case LED_UPLINK_WIFI_UP:                 /* connected via another SSID */
-        strip_set_rgb(0, ((tick % 20) < 10) ? 60 : 0, 0);
-        return;
-    case LED_UPLINK_NONE:
-    default:
-        break;                               /* fall through to base logic */
     }
 
     if (!ap_connect) {
@@ -238,31 +212,6 @@ void led_strip_status_update(void)
         }
     }
 
-
-    /* Uplink indication. These override the generic colouring below.
-     *
-     * Rates (status thread ticks every 50 ms):
-     *   fast = (tick % 4) < 2  -> 200 ms period -> 5 Hz
-     *   slow = (tick % 20) < 10 -> 1000 ms period -> 1 Hz
-     *
-     * "fast red" and "fast green" share the rate but never the colour, and the
-     * slow green is half the rate of the fast green, so 4G vs WiFi is readable
-     * at a glance without a label. */
-    switch (uplink_state) {
-    case LED_UPLINK_NO_NETWORK:              /* 4G selected, no network */
-        strip_set_rgb(((tick % 4) < 2) ? 60 : 0, 0, 0);
-        return;
-    case LED_UPLINK_4G_UP:                   /* connected via 4G */
-        strip_set_rgb(0, ((tick % 4) < 2) ? 60 : 0, 0);
-        return;
-    case LED_UPLINK_WIFI_UP:                 /* connected via another SSID */
-        strip_set_rgb(0, ((tick % 20) < 10) ? 60 : 0, 0);
-        return;
-    case LED_UPLINK_NONE:
-    default:
-        break;                               /* fall through to base logic */
-    }
-
     if (!ap_connect) {
         uint8_t phase = tick % 40;
         uint8_t brightness = (phase < 20) ? (5 + phase * 2) : (5 + (40 - phase) * 2);
@@ -288,9 +237,4 @@ void led_strip_notify_traffic(void)
 void led_strip_set_factory_reset(bool active)
 {
     factory_reset_flag = active;
-}
-
-void led_strip_set_uplink_state(led_uplink_state_t state)
-{
-    uplink_state = state;
 }

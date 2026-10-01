@@ -311,6 +311,21 @@
       ],
       "evidence": "Compile gate only: make check -> nat_router ok (ESP-IDF 5.5.4, app 0x15cdd0 / 1428944 bytes). No hardware evidence exists for this image; no 4G hardware verification was performed.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T13:30:00Z",
+      "type": "defect",
+      "summary": "Withdraw 0.2.0-4g.1 and restore the TEST-810 verified base. The 4G-uplink build did not bring up the SoftAP.",
+      "requirement_ids": [],
+      "task_ids": [],
+      "changes": [
+        "Reverted firmware/nat_router to commit 28d137a (base only) and removed components/modem_4g, main/uplink_manager.*, pages/page_modem.h. Work preserved in history at 8b09974.",
+        "Deleted the generated sdkconfig: reverting sdkconfig.defaults alone is NOT enough, because the generated sdkconfig kept CONFIG_LWIP_PPP_SUPPORT=y and produced a 1403024 B binary instead of the verified 1374544 B. This is a recurrence of the stale-sdkconfig trap and must be recorded.",
+        "Restored staged nomadlink.bin to 1374544 B, bit-identical to the TEST-810 image the owner confirmed working.",
+        "docs/project/firmware.json: rollback_note added."
+      ],
+      "evidence": "Rebuilt payload is 1374544 B, the same size as the TEST-810 verified image. NOT hardware-verified by me: the owner must reflash to confirm the AP returns.",
+      "status": "IN_PROGRESS"
     }
   ]
 }
