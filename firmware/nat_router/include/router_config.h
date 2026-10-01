@@ -17,6 +17,11 @@ extern "C" {
 
 #define DEFAULT_HOSTNAME "nomadlink"
 
+/* NomadLink board: single WS2812B RGB status LED on GPIO38.
+ * Measured by hw_selftest.ino (blue->green on this pin), not read off a
+ * schematic. Overridable via NVS "ls_gpio"; -1 disables. */
+#define NOMADLINK_WS2812_GPIO 38
+
 #define PROTO_TCP 6
 #define PROTO_UDP 17
 

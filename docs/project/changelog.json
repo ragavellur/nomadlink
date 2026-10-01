@@ -293,6 +293,24 @@
       "task_ids": [
         "TASK-102"
       ]
+    },
+    {
+      "timestamp": "2026-10-01T12:00:00Z",
+      "type": "feature",
+      "summary": "Add A7670E 4G as a selectable uplink alongside WiFi, with a /modem web page and RGB status signalling. Compile-gated only; NOT hardware-verified.",
+      "requirement_ids": [],
+      "task_ids": [],
+      "changes": [
+        "firmware/nat_router/components/modem_4g/: A7670E UART (GPIO17/18) + raw-lwIP PPPoS driver. Raw lwIP chosen because esp_modem is not in ESP-IDF 5.5.4 (it lives in esp-iot-solution); path ported from the hardware-proven baseline ppp_client.ino.",
+        "firmware/nat_router/main/uplink_manager.c/.h: uplink_mode {wifi,4g,eth}, NVS-persisted, route priority, 2s poll task (raw PPP emits no IP_EVENT_PPP_GOT_IP), auto-dial on boot when mode=4g, plus uplink_ui_get/set as the web bridge.",
+        "firmware/nat_router/sdkconfig.defaults: CONFIG_LWIP_PPP_SUPPORT=y and friends; VJ header compression forced OFF because it conflicts with NAPT.",
+        "firmware/nat_router/components/http_server: new /modem page + handler + nav link; GET-query form matching the base's existing form idiom.",
+        "firmware/nat_router/main/led_strip_status.c: led_uplink_state_t - fast red = 4G no network, fast green = 4G up, slow green = WiFi uplink. WS2812B defaulted to GPIO38 (was disabled).",
+        "docs/product/led-signals.md: running, extensible LED signal list.",
+        "docs/project/firmware.json: version 0.2.0-4g.1; staged nomadlink size 1428944; base hardware PASS scoped to 0.1.0-base.1; 4G image marked NOT hardware-verified."
+      ],
+      "evidence": "Compile gate only: make check -> nat_router ok (ESP-IDF 5.5.4, app 0x15cdd0 / 1428944 bytes). No hardware evidence exists for this image; no 4G hardware verification was performed.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

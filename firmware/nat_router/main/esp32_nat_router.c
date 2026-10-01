@@ -33,6 +33,7 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_ota_ops.h"
+#include "uplink_manager.h"
 
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
@@ -1361,11 +1362,21 @@ void app_main(void)
         ESP_LOGI(TAG, "LED low-active mode enabled");
     }
 
-    // Load addressable LED strip GPIO from NVS (default -1 = disabled)
-    int led_strip_gpio_setting = -1;
-    if (get_config_param_int("ls_gpio", &led_strip_gpio_setting) == ESP_OK) {
+    /* Addressable LED strip GPIO from NVS.
+     *
+     * This board has one WS2812B on GPIO38. That is measured, not assumed:
+     * hw_selftest.ino drove it blue->green on that pin and LESSONS_LEARNED.md
+     * records it under the camera pinout. Defaulting it on means the RGB status
+     * indicator actually works out of the box; an NVS "ls_gpio" still overrides,
+     * and -1 disables. */
+    int led_strip_gpio_setting = NOMADLINK_WS2812_GPIO;
+    if (get_config_param_int("ls_gpio", &led_strip_gpio_setting) != ESP_OK) {
+        /* No stored value: keep the board default rather than -1. */
+        led_strip_gpio = NOMADLINK_WS2812_GPIO;
+    } else {
         led_strip_gpio = led_strip_gpio_setting;
     }
+    ESP_LOGI(TAG, "RGB status LED on GPIO%d", led_strip_gpio);
 
     // Antenna (RF) switch: select pin, optional enable pin and the selected
     // antenna. Disabled (GPIO -1) unless configured, so untouched boards keep
@@ -1610,6 +1621,11 @@ void app_main(void)
             ESP_LOGW(TAG, "Failed to apply WiFi country code %s: %s", wifi_country_code, esp_err_to_name(ret));
         }
     }
+
+    /* Uplink selection. Reads the persisted choice and, if it is 4G, brings up
+     * the A7670E PPP link here. Placed after esp_netif_init and after the STA is
+     * configured, so route priority has something to act on. */
+    uplink_init();
 
     pthread_t t1;
     pthread_create(&t1, NULL, led_status_thread, NULL);

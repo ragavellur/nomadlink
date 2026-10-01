@@ -186,6 +186,7 @@ font-size: 0.8rem;\
 <div class='button-container'>\
 <a href='/setup' class='nav-button'>🚀 Getting Started</a>\
 <a href='/scan' class='nav-button'>📡 WiFi Scan</a>\
+<a href='/modem' class='nav-button'>📶 Uplink / 4G</a>\
 <a href='/config' class='nav-button'>⚙️ Configuration</a>\
 <a href='/mappings' class='nav-button'>🔀 Mappings</a>\
 <a href='/firewall' class='nav-button'>🛡️ Firewall</a>\
@@ -194,6 +195,7 @@ font-size: 0.8rem;\
 #else
 #define INDEX_CHUNK_BUTTONS "\
 <div class='button-container'>\
+<a href='/modem' class='nav-button'>📶 Uplink / 4G</a>\
 <a href='/config' class='nav-button'>⚙️ Configuration</a>\
 <a href='/mappings' class='nav-button'>🔀 Mappings</a>\
 <a href='/firewall' class='nav-button'>🛡️ Firewall</a>\
