@@ -342,6 +342,19 @@
       ],
       "evidence": "Compile gate only: make check passes. NOT hardware-verified; the owner must flash and confirm the AP returns and /modem appears.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T14:40:00Z",
+      "type": "fix",
+      "summary": "Fix swapped handler/arg in esp_event_handler_instance_register -- the cause of both the 4G no-AP loop and the reconnect loop.",
+      "requirement_ids": [],
+      "task_ids": [],
+      "changes": [
+        "main/uplink_manager.c: pass uplink_esp_event_cb as the handler and NULL as handler_arg; log registration failures instead of asserting.",
+        "App console on UART0 is what made this diagnosable; keep it."
+      ],
+      "evidence": "Panic captured on UART0 ('assert failed' at 2714 ms) and resolved to esp_event.c:787 via addr2line against build_esp32s3/nomadlink.elf. NOT hardware-verified after the fix.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

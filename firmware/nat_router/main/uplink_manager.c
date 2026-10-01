@@ -258,7 +258,16 @@ void uplink_init(void)
     static const int32_t evs[] = { IP_EVENT_STA_GOT_IP, IP_EVENT_STA_LOST_IP,
                                    IP_EVENT_ETH_GOT_IP, IP_EVENT_ETH_LOST_IP };
     for (size_t i = 0; i < sizeof(evs) / sizeof(evs[0]); i++) {
-        esp_event_handler_instance_register(IP_EVENT, evs[i], NULL, uplink_esp_event_cb, NULL);
+        /* Signature is (base, id, handler, handler_arg, instance). Passing NULL
+         * as the handler and the callback as the argument compiles fine -- both
+         * are pointers -- and then trips assert(event_handler) in esp_event.c,
+         * which is what bricked 0.2.0-4g.1 and looped 0.3.0-4g.2. */
+        esp_err_t herr = esp_event_handler_instance_register(IP_EVENT, evs[i],
+                                                              uplink_esp_event_cb, NULL, NULL);
+        if (herr != ESP_OK) {
+            ESP_LOGE(TAG, "cannot watch %s event %d: %s",
+                     (i < 2 ? "STA" : "ETH"), evs[i], esp_err_to_name(herr));
+        }
     }
 
     /* PPP here is raw lwIP, not an esp_netif interface, so it posts no
