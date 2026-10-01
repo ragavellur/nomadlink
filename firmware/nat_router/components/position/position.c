@@ -285,9 +285,15 @@ static bool uart_and_power_up(void)
         .pin_bit_mask = 1ULL << POS_ENABLE,
         .mode = GPIO_MODE_OUTPUT,
     };
-    ESP_ERROR_CHECK(gpio_config(&en));
+    /* Never ESP_ERROR_CHECK here. An abort inside the position task would take the
+     * router down with it, and this whole component is optional. */
+    if (gpio_config(&en) != ESP_OK) {
+        ESP_LOGE(TAG, "gpio_config(enable) failed; position disabled");
+        return false;
+    }
     gpio_set_level(POS_ENABLE, 1);      /* enable rail active HIGH */
-    vTaskDelay(pdMS_TO_TICKS(500));
+    /* 800 ms matches firmware/baseline/ppp_client, which measured working. */
+    vTaskDelay(pdMS_TO_TICKS(800));
 
     uart_config_t cfg = {
         .baud_rate = POS_BAUD,
@@ -431,49 +437,84 @@ static bool start_gnss(void)
     return true;
 }
 
+/* How long to keep trying. The A7670E needs many seconds from a cold rail to its
+ * first "OK" -- firmware/baseline/ppp_client waits 6 s on its own after the power
+ * sequence. 0.6.1 retried six times with a 3 s timeout over roughly 24 s and then
+ * declared "modem did not answer AT", which described a modem that had not finished
+ * booting, not a modem that was absent. Every attempt is logged with its raw reply
+ * so the next failure is diagnosable instead of guessed at. */
+#define AT_SYNC_ATTEMPTS 30
+#define AT_SYNC_GAP_MS   3000
+
+static bool at_sync_patient(void)
+{
+    char reply[128];
+    for (int i = 1; i <= AT_SYNC_ATTEMPTS; i++) {
+        if (at_send("AT", 3000, reply, sizeof(reply), true) && strstr(reply, "OK")) {
+            ESP_LOGI(TAG, "modem answering AT on attempt %d (raw: %s)", i, reply);
+            return true;
+        }
+        ESP_LOGW(TAG, "AT no reply, attempt %d/%d (raw: %s)",
+                 i, AT_SYNC_ATTEMPTS, reply);
+        vTaskDelay(pdMS_TO_TICKS(AT_SYNC_GAP_MS));
+    }
+    return false;
+}
+
 static void position_task(void *arg)
 {
-    /* Let the SoftAP finish coming up first. This task is spawned at the very end
-     * of app_main, but a modem that stalls must still never cost us the AP. */
-    vTaskDelay(pdMS_TO_TICKS(10000));
+    bool up = false;
 
-    if (!uart_and_power_up()) {
-        ESP_LOGE(TAG, "modem UART/power unavailable; no position service");
-        return;
+    /* THIS FUNCTION MUST NEVER RETURN.
+     *
+     * A FreeRTOS task function that returns hits prvTaskExitError, which ends in
+     * __builtin_unreachable() -- an IllegalInstruction panic. 0.6.1 did exactly
+     * that on its "modem did not answer AT" path, and the owner got a Guru
+     * Meditation 20 s after boot, on every boot:
+     *
+     *   position: modem did not answer AT; no position service
+     *   Guru Meditation Error: Core 0 panic'ed (IllegalInstruction)
+     *   0x4202adde position_task at position.c:441 and :477
+     *
+     * Every failure below loops instead of returning, so an absent, slow or broken
+     * modem can only ever cost the position feature -- never the router. */
+    for (;;) {
+        /* Let the SoftAP finish coming up. A modem that stalls must never cost
+         * us the AP. */
+        vTaskDelay(pdMS_TO_TICKS(10000));
+
+        if (!up) {
+            if (!uart_and_power_up()) {
+                ESP_LOGE(TAG, "modem UART/power unavailable; retrying in 10 s");
+                continue;
+            }
+            up = true;
+            try_escape_to_command_mode();
+        }
+
+        if (!at_sync_patient()) {
+            ESP_LOGE(TAG, "modem still not answering after %d attempts; position "
+                          "idle, router unaffected, will keep retrying",
+                     AT_SYNC_ATTEMPTS);
+            continue;              /* 'up' stays true: never re-install the driver */
+        }
+
+        char reply[256];
+
+        /* Mute NMEA first so the LBS exchange runs on a clean UART. Stop the
+         * stream only -- never power-cycle the engine. */
+        at_send("AT+CGNSSTST=0", 4000, reply, sizeof(reply), true);
+
+        /* Power the engine NOW so it acquires while LBS resolves. */
+        at_send("AT+CGNSSPWR=1", 10000, reply, sizeof(reply), false);
+        at_send("AT+CGNSSPORTSWITCH=0,1", 4000, reply, sizeof(reply), true);
+
+        acquire_lbs();
+        start_gnss();
+
+        /* nmea_task owns the UART from here and updates the record itself. */
+        for (;;) vTaskDelay(pdMS_TO_TICKS(60000));
     }
-
-    try_escape_to_command_mode();
-
-    /* AT sync. */
-    bool synced = false;
-    for (int i = 0; i < 6 && !synced; i++) {
-        char reply[128];
-        if (at_send("AT", 3000, reply, sizeof(reply), true) && strstr(reply, "OK")) synced = true;
-        else vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-    if (!synced) {
-        ESP_LOGE(TAG, "modem did not answer AT; no position service");
-        return;
-    }
-    ESP_LOGI(TAG, "modem answering AT");
-
-    /* Mute NMEA first so the LBS exchange runs on a clean UART. Stop the stream
-     * only -- never power-cycle the engine. */
-    char reply[256];
-    at_send("AT+CGNSSTST=0", 4000, reply, sizeof(reply), true);
-
-    /* Power the engine NOW so it acquires while LBS resolves, then mute again. */
-    at_send("AT+CGNSSPWR=1", 10000, reply, sizeof(reply), false);
-    at_send("AT+CGNSSPORTSWITCH=0,1", 4000, reply, sizeof(reply), true);
-
-    acquire_lbs();
-
-    /* LBS exchange done; let NMEA through. */
-    start_gnss();
-
-    /* Stay alive pumping nothing further: nmea_task owns the UART from here, and
-     * the record is updated by the parser. */
-    for (;;) vTaskDelay(pdMS_TO_TICKS(60000));
 }
 
 void position_init(void)
@@ -483,7 +524,10 @@ void position_init(void)
     s_uart_lock = xSemaphoreCreateMutex();
     memset(&s_pos, 0, sizeof(s_pos));
 
-    xTaskCreate(position_task, "position", 6144, NULL, 3, NULL);
+    if (xTaskCreate(position_task, "position", 6144, NULL, 3, NULL) != pdPASS) {
+        ESP_LOGE(TAG, "could not create the position task; position disabled");
+        return;
+    }
     ESP_LOGI(TAG, "position service starting (LBS first, GNSS upgrade)");
 }
 

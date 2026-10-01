@@ -423,6 +423,24 @@
       ],
       "evidence": "Compiles (1396336 bytes) and 28 NMEA tests pass. The position path is still NOT hardware-verified.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T18:05:00Z",
+      "type": "fix",
+      "summary": "Fix the IllegalInstruction reboot loop: a FreeRTOS task that returned, plus an AT sync that gave up before the modem finished booting.",
+      "requirement_ids": [],
+      "task_ids": [
+        "TASK-302"
+      ],
+      "changes": [
+        "position.c: position_task no longer returns on any path (prvTaskExitError -> IllegalInstruction).",
+        "position.c: AT sync is now 30 attempts over ~90 s with every raw reply logged, instead of 6 over ~24 s.",
+        "position.c: enable rail settle 500 ms -> 800 ms, matching the measured baseline.",
+        "position.c: gpio_config failure is handled, not ESP_ERROR_CHECK'd.",
+        "Makefile: two new gates in `make check` - no bare `return;` in a FreeRTOS task, no ESP_ERROR_CHECK in position.c code."
+      ],
+      "evidence": "Owner's 0.6.1 serial log captured the panic; addr2line resolved 0x4202adde to position_task:441/:477. New gate proven to fail on the panicking revision. Compiles at 1396656 bytes. Position still NOT hardware-verified.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

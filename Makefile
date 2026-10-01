@@ -32,6 +32,18 @@ test-position:
 	  firmware/nat_router/components/position/nmea.c \
 	  firmware/nat_router/components/position/test/test_nmea.c -lm
 	@/tmp/nomadlink_test_nmea
+	@echo "==> position: FreeRTOS task-return guard"
+	@python3 -c "import re,sys; \
+src=open('firmware/nat_router/components/position/position.c').read(); \
+m=re.search(r'static void (nmea_task|position_task)\(.*?\n\}', src, re.S); \
+[sys.exit('FAIL: '+n+' contains a bare return; a FreeRTOS task returning panics with IllegalInstruction') \
+ for n in ('nmea_task','position_task') \
+ for b in [re.search(r'static void '+n+r'\(.*?\n\}', src, re.S).group(0)] if re.search(r'^\s*return\s*;', b, re.M)]; \
+print('  o task-return guard ok')"
+	@echo "==> position: no abort-on-failure in the optional component"
+	@! grep -vE '^[[:space:]]*(/\\*|\\*|//)' firmware/nat_router/components/position/position.c \
+	   | grep -q ESP_ERROR_CHECK \
+	  || (echo "FAIL: ESP_ERROR_CHECK in position.c code would abort the router" && false)
 
 render:
 	@python3 scripts/project-tracker/render.py
