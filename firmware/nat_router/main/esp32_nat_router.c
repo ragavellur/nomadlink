@@ -33,7 +33,6 @@
 #include "nvs.h"
 #include "nvs_flash.h"
 #include "esp_ota_ops.h"
-#include "uplink_manager.h"
 
 #include "freertos/event_groups.h"
 #include "esp_wifi.h"
@@ -69,6 +68,7 @@
 #include "syslog_client.h"
 #include "oled_display.h"
 #include "led_strip_status.h"
+#include "modem_fallback.h"
 #if !defined(CONFIG_IDF_TARGET_ESP32C5)
 #include "mdns.h"
 #endif
@@ -325,14 +325,6 @@ static void initialize_console(void)
 #endif
 #define FACTORY_RESET_HOLD_MS 5000
 #define POLL_INTERVAL_MS      50
-
-static void uplink_boot_task(void *arg)
-{
-    /* Let the AP finish announcing itself before we touch the modem. */
-    vTaskDelay(pdMS_TO_TICKS(2000));
-    uplink_init();
-    vTaskDelete(NULL);
-}
 
 void * led_status_thread(void * p)
 {
@@ -1627,12 +1619,12 @@ void app_main(void)
         }
     }
 
-    /* NOTE: uplink_init() deliberately NOT called here.
+    /* NOTE: the A7670E is deliberately NOT touched here.
      *
      * The SoftAP only starts further down (the ap_disabled block), so anything
-     * that panics before it leaves the device with no AP at all -- which is
-     * exactly what 0.2.0-4g.1 did. It is now started from a task at the very
-     * end of app_main, once the AP and web server are up. */
+     * that fails before it leaves the device with no AP at all -- which is what
+     * the 4G builds did. The modem fallback task is started at the very end of
+     * app_main instead, and it only ever dials when the STA has no address. */
 
     pthread_t t1;
     pthread_create(&t1, NULL, led_status_thread, NULL);
@@ -1698,11 +1690,6 @@ void app_main(void)
 
     initialize_console();
 
-    /* 4G uplink. Runs in its own task, after the SoftAP and web server are up,
-     * so the device is always reachable to fix a bad modem from the /modem page
-     * even if the dial never succeeds. */
-    xTaskCreate(uplink_boot_task, "uplinkboot", 4096, NULL, 3, NULL);
-
     /* Register commands */
     esp_console_register_help_command();
     register_system();
@@ -1749,6 +1736,11 @@ void app_main(void)
         prompt = "esp32> ";
 #endif //CONFIG_LOG_COLORS
     }
+
+    /* 4G fallback for the ESP32 itself. Started here, after the SoftAP and the
+     * web server exist, so a modem fault can never leave the device with no AP.
+     * It stays dormant while the STA has an address; see modem_fallback.c. */
+    modem_fallback_init();
 
     /* Main loop */
     while(true) {

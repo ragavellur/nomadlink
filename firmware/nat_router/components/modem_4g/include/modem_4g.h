@@ -1,11 +1,15 @@
 /*
- * A7670E 4G modem as a PPP uplink for the NomadLink router.
+ * A7670E 4G modem, PPP over UART. NOT a router uplink.
+ *
+ * Scope is deliberately narrow: this driver brings up a PPP link for the ESP32's
+ * own use and nothing else. It installs no default route and enables no NAPT, so
+ * SoftAP clients can never egress over the modem. The driver is reached only
+ * through main/modem_fallback.c, and only while the WiFi STA has no address.
  *
  * Transport is the one thing that differs from Espressif's usb_cdc_4g_module
  * reference: this board wires the modem to UART GPIO17/18, not USB CDC. The
- * PPP/NAPT approach is unchanged. The bring-up sequence and the two rules that
- * BUG-005 taught us are carried over from firmware/baseline/ppp_client, which
- * measured working on this board:
+ * bring-up sequence and the two rules that BUG-005 taught us are carried over
+ * from firmware/baseline/ppp_client, which measured working on this board:
  *
  *   1. The module enable rail is GPIO33, active HIGH. GPIO42 is NOT PWRKEY --
  *      that net does not reach this board -- so no PWRKEY pulse is ever sent.
@@ -41,7 +45,7 @@ typedef enum {
     MODEM_4G_STATE_PROBING,     /* powering/AT probe, not yet dialled      */
     MODEM_4G_STATE_DIALING,     /* ATD*99# sent, waiting for CONNECT      */
     MODEM_4G_STATE_NEGOTIATING, /* CONNECT seen, LCP/IPCP running          */
-    MODEM_4G_STATE_UP,          /* PPP running, IP assigned, NAPT can flow */
+    MODEM_4G_STATE_UP,          /* PPP running and IP assigned */
     MODEM_4G_STATE_ERROR        /* bring-up failed; see last_error         */
 } modem_4g_state_t;
 
@@ -86,8 +90,9 @@ esp_err_t modem_4g_stop(void);
 /* Snapshot of current state. Safe from any task. */
 void modem_4g_get_status(modem_4g_status_t *out);
 
-/* True once PPP has reached MODEM_4G_STATE_UP and holds an IP. This is the
- * signal the router uses to decide the 4G uplink is usable. */
+/* True once PPP has reached MODEM_4G_STATE_UP and holds an IP. Note this says
+ * the LINK is up; it deliberately says nothing about routing, because this driver
+ * performs none. */
 bool modem_4g_is_up(void);
 
 #ifdef __cplusplus

@@ -355,6 +355,23 @@
       ],
       "evidence": "Panic captured on UART0 ('assert failed' at 2714 ms) and resolved to esp_event.c:787 via addr2line against build_esp32s3/nomadlink.elf. NOT hardware-verified after the fix.",
       "status": "IN_PROGRESS"
+    },
+    {
+      "timestamp": "2026-10-01T15:10:00Z",
+      "type": "change",
+      "summary": "Withdraw 4G as a router uplink. 4G is now an ESP32-only fallback link, dialled only when WiFi is absent.",
+      "requirement_ids": [],
+      "task_ids": [
+        "TASK-103"
+      ],
+      "changes": [
+        "Removed the /modem uplink-selector page, its HTTP handlers, the nav link, and main/uplink_manager.c.",
+        "components/modem_4g/modem_4g.c: dropped ppp_set_default() so PPP can never become the lwIP default route.",
+        "Added main/modem_fallback.c: polls the STA address every 5 s; dials 4G only after 3 consecutive misses (15 s); drops the link when WiFi returns.",
+        "Corrected the stale 'PPP uplink / NAPT' claims in components/modem_4g/include/modem_4g.h."
+      ],
+      "evidence": "Compiles (1425552 bytes). No hardware test yet; the routing guarantee is a code-level fact (no default route, no NAPT call) that is NOT yet confirmed on the board.",
+      "status": "IN_PROGRESS"
     }
   ]
 }

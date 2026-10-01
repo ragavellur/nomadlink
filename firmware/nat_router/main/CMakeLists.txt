@@ -13,11 +13,11 @@ endif()
 list(APPEND main_priv_requires espressif__mdns)
 
 idf_component_register(SRCS "esp32_nat_router.c"
+                            "modem_fallback.c"
                             "portmap.c"
                             "dhcp_manager.c"
                             "vpn_manager.c"
                             "netif_hooks.c"
-                            "uplink_manager.c"
                             "led_strip_status.c"
                     INCLUDE_DIRS "."
                     PRIV_REQUIRES ${main_priv_requires})

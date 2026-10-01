@@ -195,7 +195,9 @@ static void ppp_create_cb(void *arg)
     }
     ppp_set_notify_phase_callback(s_pcb, ppp_on_phase);
     ppp_set_usepeerdns(s_pcb, 1);
-    ppp_set_default(s_pcb);
+    /* Deliberately NOT ppp_set_default(): becoming the lwIP default route would, with
+     * this base's global NAPT, silently send SoftAP clients out over 4G. The link
+     * exists for the ESP32 itself; it must never become the router's uplink. */
     ppp_connect(s_pcb, 0);
 }
 
